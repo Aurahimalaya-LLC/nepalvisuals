@@ -1,0 +1,49 @@
+# Dependencies
+node_modules
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# Build Output
+dist
+build
+out
+.next
+.nuxt
+.output
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+
+# Source Control
+.git
+.gitignore
+.vercelignore
+
+# Editor & IDE
+.vscode
+.idea
+.DS_Store
+*.swp
+*.swo
+
+# Testing & Coverage
+coverage
+.nyc_output
+cypress
+playwright-report
+test-results
+
+# Project Specific
+.trae
+docs
+supabase
+scripts
+tests
+README.md
+*.md

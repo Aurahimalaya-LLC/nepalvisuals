@@ -1,0 +1,22 @@
+
+/* 
+  Global white text override for Trip Details Page
+  Using extremely specific selector and !important to guarantee overrides
+*/
+.trip-details-page-white-override * {
+  color: #FFFFFF !important;
+}
+
+/* 
+  Ensure icons that might rely on text color also turn white,
+  but allow specific status colors (like stars or success messages) to retain their color if needed.
+  However, the user request was "all text elements display in white color".
+  We will stick to the strict override for text.
+*/
+
+/* 
+  Re-apply color to inputs so they are readable against their backgrounds if needed, 
+  but the user asked for "All visible text... in pure white".
+  We will assume this includes inputs unless it breaks usability (white on white).
+  For safety, we'll keep inputs white, assuming backgrounds are dark as per existing design (bg-surface-dark).
+*/

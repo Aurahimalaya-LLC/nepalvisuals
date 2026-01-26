@@ -1,0 +1,90 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nepal Visuals - Conquer the Unseen Peaks</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries,typography"></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        // Public Dark Theme
+                        "primary": "#d91e46",
+                        "primary-dark": "#b01030",
+                        "secondary": "#003b95",
+                        "secondary-dark": "#002a6b",
+                        "background-light": "#f6f8f9",
+                        "background-dark": "#051324",
+                        "surface-dark": "#0c223d",
+                        "surface-darker": "#08192e",
+                        "text-secondary": "#9fb3c8",
+
+                        // Admin Light Theme
+                        "admin-primary": "#2563eb",
+                        "admin-primary-hover": "#1d4ed8",
+                        "admin-background": "#f8fafc",
+                        "admin-surface": "#ffffff",
+                        "admin-border": "#e2e8f0",
+                        "admin-text-primary": "#1e293b",
+                        "admin-text-secondary": "#64748b",
+                        "status-published": "#16a34a",
+                        "status-published-bg": "#dcfce7",
+                        "status-draft": "#f97316",
+                        "status-draft-bg": "#ffedd5",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "1rem",
+                        "lg": "1.5rem",
+                        "xl": "2rem",
+                        "2xl": "3rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+      html {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      body {
+        font-family: 'Manrope', sans-serif;
+      }
+      .material-symbols-outlined {
+        font-variation-settings:
+        'FILL' 0,
+        'wght' 400,
+        'GRAD' 0,
+        'opsz' 24
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes scaleIn {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+      }
+      .animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
+      .animate-scaleIn { animation: scaleIn 0.3s ease-out forwards; }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="antialiased overflow-x-hidden">
+    <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
