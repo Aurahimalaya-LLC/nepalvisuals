@@ -192,7 +192,7 @@ export const HeroSearch: React.FC = () => {
             {isOpen && (
                 <div 
                     id="search-suggestions"
-                    className="absolute top-full left-0 w-full bg-surface-dark/95 backdrop-blur-xl border-x border-b border-white/10 rounded-b-2xl shadow-2xl overflow-hidden animate-fadeIn z-[60]"
+                    className="absolute top-full left-0 w-full bg-surface-dark/95 backdrop-blur-xl border-x border-b border-white/10 rounded-b-2xl shadow-2xl overflow-hidden z-[100]"
                     role="listbox"
                 >
                     {loading ? (
