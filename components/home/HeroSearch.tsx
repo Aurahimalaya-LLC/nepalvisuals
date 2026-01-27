@@ -211,7 +211,7 @@ export const HeroSearch: React.FC = () => {
                         <div
                             id="search-suggestions"
                             role="listbox"
-                            style={{ position: 'fixed', left: dropdownRect.left, top: dropdownRect.top, width: dropdownRect.width, zIndex: 1000 }}
+                            style={{ position: 'fixed', left: dropdownRect.left, top: dropdownRect.top, width: dropdownRect.width, zIndex: 9999 }}
                             className="bg-surface-dark/95 backdrop-blur-xl border-x border-b border-white/10 rounded-b-2xl shadow-2xl overflow-hidden"
                         >
                             {loading ? (
