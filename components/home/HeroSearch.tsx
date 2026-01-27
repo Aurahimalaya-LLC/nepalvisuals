@@ -228,157 +228,87 @@ export const HeroSearch: React.FC = () => {
             </div>
 
             {isOpen && (
-                dropdownRect
-                    ? createPortal(
-                        <div
-                            ref={dropdownRef}
-                            id="search-suggestions"
-                            role="listbox"
-                            style={{ 
-                                position: 'fixed', 
-                                left: dropdownRect.left, 
-                                top: dropdownRect.top, 
-                                width: dropdownRect.width, 
-                                zIndex: 9999,
-                                backgroundColor: '#0c223d' 
-                            }}
-                            className="bg-surface-dark/95 backdrop-blur-xl border-x border-b border-white/10 rounded-b-2xl shadow-2xl overflow-hidden"
-                        >
-                            {loading ? (
-                                <div className="py-2">
-                                    {Array.from({ length: 3 }).map((_, i) => (
-                                        <SearchSuggestionSkeleton key={i} />
-                                    ))}
-                                </div>
-                            ) : suggestions.length > 0 ? (
-                                <ul className="py-2">
-                                    {suggestions.map((tour, index) => (
-                                        <li
-                                            key={tour.id}
-                                            id={`suggestion-${tour.id}`}
-                                            role="option"
-                                            aria-selected={index === selectedIndex}
-                                            className={`
-                                                px-6 py-3 cursor-pointer flex items-center gap-4 transition-colors
-                                                ${index === selectedIndex ? 'bg-white/10 text-white' : 'text-text-secondary hover:bg-white/5 hover:text-white'}
-                                            `}
-                                            onClick={() => handleSelect(tour)}
-                                            onMouseEnter={() => setSelectedIndex(index)}
-                                        >
-                                            <div className="h-10 w-10 rounded-lg overflow-hidden bg-white/5 flex-shrink-0">
-                                                {tour.featured_image ? (
-                                                    <img
-                                                        src={tour.featured_image}
-                                                        alt=""
-                                                        className="h-full w-full object-cover"
-                                                    />
-                                                ) : (
-                                                    <div className="h-full w-full flex items-center justify-center text-white/20">
-                                                        <span className="material-symbols-outlined text-sm">landscape</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="font-medium truncate text-white">{tour.name}</div>
-                                                <div className="text-xs text-white/50 truncate flex items-center gap-2">
-                                                    <span>{tour.duration || 'N/A'}</span>
-                                                    <span>•</span>
-                                                    <span>{tour.difficulty || 'Moderate'}</span>
-                                                </div>
-                                            </div>
-                                            <span className="material-symbols-outlined text-white/30 text-sm -rotate-45">arrow_outward</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : query.trim() && !loading ? (
-                                <div className="px-6 py-8 text-center text-text-secondary">
-                                    <span className="material-symbols-outlined text-4xl mb-2 text-white/20">search_off</span>
-                                    <p>No adventures found matching "{query}"</p>
-                                </div>
-                            ) : null}
-                            {suggestions.length > 0 && (
-                                <div className="px-4 py-3 border-t border-white/10 bg-white/5">
-                                    <button
-                                        onClick={handleSearch}
-                                        className="w-full text-center text-sm text-primary hover:text-primary-light font-medium transition-colors"
+                dropdownRect && createPortal(
+                    <div
+                        ref={dropdownRef}
+                        id="search-suggestions"
+                        role="listbox"
+                        style={{ 
+                            position: 'fixed', 
+                            left: dropdownRect.left, 
+                            top: dropdownRect.top, 
+                            width: dropdownRect.width, 
+                            zIndex: 999999,
+                            backgroundColor: '#0c223d',
+                            isolation: 'isolate'
+                        }}
+                        className="bg-surface-dark/95 backdrop-blur-xl border-x border-b border-white/10 rounded-b-2xl shadow-2xl overflow-hidden"
+                    >
+                        {loading ? (
+                            <div className="py-2">
+                                {Array.from({ length: 3 }).map((_, i) => (
+                                    <SearchSuggestionSkeleton key={i} />
+                                ))}
+                            </div>
+                        ) : suggestions.length > 0 ? (
+                            <ul className="py-2">
+                                {suggestions.map((tour, index) => (
+                                    <li
+                                        key={tour.id}
+                                        id={`suggestion-${tour.id}`}
+                                        role="option"
+                                        aria-selected={index === selectedIndex}
+                                        className={`
+                                            px-6 py-3 cursor-pointer flex items-center gap-4 transition-colors
+                                            ${index === selectedIndex ? 'bg-white/10 text-white' : 'text-text-secondary hover:bg-white/5 hover:text-white'}
+                                        `}
+                                        onClick={() => handleSelect(tour)}
+                                        onMouseEnter={() => setSelectedIndex(index)}
                                     >
-                                        View all results for "{query}"
-                                    </button>
-                                </div>
-                            )}
-                        </div>,
-                        document.body
-                    )
-                    : (
-                        <div
-                            id="search-suggestions"
-                            className="absolute top-full left-0 w-full bg-surface-dark/95 backdrop-blur-xl border-x border-b border-white/10 rounded-b-2xl shadow-2xl overflow-hidden z-[100]"
-                            role="listbox"
-                        >
-                            {loading ? (
-                                <div className="py-2">
-                                    {Array.from({ length: 3 }).map((_, i) => (
-                                        <SearchSuggestionSkeleton key={i} />
-                                    ))}
-                                </div>
-                            ) : suggestions.length > 0 ? (
-                                <ul className="py-2">
-                                    {suggestions.map((tour, index) => (
-                                        <li
-                                            key={tour.id}
-                                            id={`suggestion-${tour.id}`}
-                                            role="option"
-                                            aria-selected={index === selectedIndex}
-                                            className={`
-                                                px-6 py-3 cursor-pointer flex items-center gap-4 transition-colors
-                                                ${index === selectedIndex ? 'bg-white/10 text-white' : 'text-text-secondary hover:bg-white/5 hover:text-white'}
-                                            `}
-                                            onClick={() => handleSelect(tour)}
-                                            onMouseEnter={() => setSelectedIndex(index)}
-                                        >
-                                            <div className="h-10 w-10 rounded-lg overflow-hidden bg-white/5 flex-shrink-0">
-                                                {tour.featured_image ? (
-                                                    <img
-                                                        src={tour.featured_image}
-                                                        alt=""
-                                                        className="h-full w-full object-cover"
-                                                    />
-                                                ) : (
-                                                    <div className="h-full w-full flex items-center justify-center text-white/20">
-                                                        <span className="material-symbols-outlined text-sm">landscape</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="font-medium truncate text-white">{tour.name}</div>
-                                                <div className="text-xs text-white/50 truncate flex items-center gap-2">
-                                                    <span>{tour.duration || 'N/A'}</span>
-                                                    <span>•</span>
-                                                    <span>{tour.difficulty || 'Moderate'}</span>
+                                        <div className="h-10 w-10 rounded-lg overflow-hidden bg-white/5 flex-shrink-0">
+                                            {tour.featured_image ? (
+                                                <img
+                                                    src={tour.featured_image}
+                                                    alt=""
+                                                    className="h-full w-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="h-full w-full flex items-center justify-center text-white/20">
+                                                    <span className="material-symbols-outlined text-sm">landscape</span>
                                                 </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-medium truncate text-white">{tour.name}</div>
+                                            <div className="text-xs text-white/50 truncate flex items-center gap-2">
+                                                <span>{tour.duration || 'N/A'}</span>
+                                                <span>•</span>
+                                                <span>{tour.difficulty || 'Moderate'}</span>
                                             </div>
-                                            <span className="material-symbols-outlined text-white/30 text-sm -rotate-45">arrow_outward</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : query.trim() && !loading ? (
-                                <div className="px-6 py-8 text-center text-text-secondary">
-                                    <span className="material-symbols-outlined text-4xl mb-2 text-white/20">search_off</span>
-                                    <p>No adventures found matching "{query}"</p>
-                                </div>
-                            ) : null}
-                            {suggestions.length > 0 && (
-                                <div className="px-4 py-3 border-t border-white/10 bg-white/5">
-                                    <button
-                                        onClick={handleSearch}
-                                        className="w-full text-center text-sm text-primary hover:text-primary-light font-medium transition-colors"
-                                    >
-                                        View all results for "{query}"
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    )
+                                        </div>
+                                        <span className="material-symbols-outlined text-white/30 text-sm -rotate-45">arrow_outward</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : query.trim() && !loading ? (
+                            <div className="px-6 py-8 text-center text-text-secondary">
+                                <span className="material-symbols-outlined text-4xl mb-2 text-white/20">search_off</span>
+                                <p>No adventures found matching "{query}"</p>
+                            </div>
+                        ) : null}
+                        {suggestions.length > 0 && (
+                            <div className="px-4 py-3 border-t border-white/10 bg-white/5">
+                                <button
+                                    onClick={handleSearch}
+                                    className="w-full text-center text-sm text-primary hover:text-primary-light font-medium transition-colors"
+                                >
+                                    View all results for "{query}"
+                                </button>
+                            </div>
+                        )}
+                    </div>,
+                    document.body
+                )
             )}
             {/* Error Message */}
             {error && (
