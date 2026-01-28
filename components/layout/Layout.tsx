@@ -12,7 +12,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     const [isHeaderVisible, setIsHeaderVisible] = React.useState(true);
     const location = useLocation();
 
-    const isTripDetailsPage = location.pathname.startsWith('/trip/');
+    const isTripDetailsPage = location.pathname.startsWith('/trip/') || location.pathname.startsWith('/trek/');
     const isAdminPage = location.pathname.startsWith('/admin');
 
     const childrenWithProps = React.Children.map(children, child => {

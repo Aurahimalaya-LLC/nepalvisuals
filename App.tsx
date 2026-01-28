@@ -47,6 +47,7 @@ const PublicRoutes = () => (
             <Route path="/tours" element={<ToursByRegionPage />} />
             <Route path="/region/:regionName" element={<RegionPageLazy />} />
                 <Route path="/trip/:slug" element={<TripDetailsPage />} />
+                <Route path="/trek/:slug" element={<TripDetailsPage />} />
                 <Route path="/booking/checkout" element={<CheckoutPage />} />
                 <Route path="/booking/confirmed" element={<ConfirmationPage />} />
             </Routes>
