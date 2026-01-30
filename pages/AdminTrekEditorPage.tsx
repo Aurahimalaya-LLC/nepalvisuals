@@ -516,7 +516,7 @@ const AdminTrekEditorPage: React.FC = () => {
 
     useEffect(() => {
         const origin = window.location.origin;
-        const basePath = isEditing ? `/#/admin/trek/edit/${trekId}` : '/#/admin/trek/new';
+        const basePath = isEditing ? `/admin/trek/edit/${trekId}` : '/admin/trek/new';
         const sectionUrl = `${origin}${basePath}`;
         const sectionCanonical = `${sectionUrl}?section=seo-settings`;
         const existingManagedCanonicals = Array.from(

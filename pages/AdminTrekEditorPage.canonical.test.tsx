@@ -43,7 +43,7 @@ describe('AdminTrekEditorPage canonical tags', () => {
       expect(links.length).toBe(1);
       const href = links[0].getAttribute('href');
       expect(href).toBe(
-        `${origin}/#/admin/trek/edit/test-trek?section=seo-settings`
+        `${origin}/admin/trek/edit/test-trek?section=seo-settings`
       );
     });
   });
@@ -76,7 +76,7 @@ describe('AdminTrekEditorPage canonical tags', () => {
       expect(links.length).toBe(1);
       const href = links[0].getAttribute('href');
       expect(href).toBe(
-        `${origin}/#/admin/trek/edit/test-trek?section=seo-settings`
+        `${origin}/admin/trek/edit/test-trek?section=seo-settings`
       );
     });
   });

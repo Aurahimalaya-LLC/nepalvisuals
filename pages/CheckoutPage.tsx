@@ -1,7 +1,9 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getCountries } from '../lib/utils/countries';
+import { Calendar } from '../components/common/Calendar';
+import { supabase } from '../lib/supabaseClient';
 
 const countryOptions = getCountries();
 
@@ -20,19 +22,44 @@ const CheckoutPage: React.FC = () => {
         tourId: string;
         tourName: string;
         tourImage: string;
-        selectedDate: string;
+        selectedDate: string | undefined;
         selectedDepartureId: string | null;
         guestCount: number;
         basePrice: number;
         totalPrice: number;
+        duration?: number;
     } | undefined;
 
     const [numTravelers, setNumTravelers] = useState(bookingData?.guestCount || 2);
+    const [selectedDate, setSelectedDate] = useState<Date | null>(
+        bookingData?.selectedDate ? new Date(bookingData.selectedDate) : null
+    );
+    const [showCalendar, setShowCalendar] = useState(false);
+    const [displayDate, setDisplayDate] = useState(new Date());
+    const calendarRef = useRef<HTMLDivElement>(null);
+
     const [selectedAddons, setSelectedAddons] = useState<Record<string, boolean>>({
         privateRoom: true,
         transfer: true,
     });
     const [paymentMethod, setPaymentMethod] = useState<'full' | 'partial'>('full');
+
+    // Lead Traveler / Signup State
+    const [loading, setLoading] = useState(false);
+    const [authError, setAuthError] = useState<string | null>(null);
+    const [isAnonymous, setIsAnonymous] = useState(false);
+    const [fullName, setFullName] = useState('');
+    const [email, setEmail] = useState('');
+    const [gender, setGender] = useState('Male');
+    const [dob, setDob] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [country, setCountry] = useState('');
+    const [phone, setPhone] = useState('');
+    const [hearAbout, setHearAbout] = useState('');
+
+    const [showGuestEdit, setShowGuestEdit] = useState(false);
+    const guestEditRef = useRef<HTMLDivElement>(null);
 
     // Redirect if no booking data is present (optional, or show default/empty state)
     useEffect(() => {
@@ -42,9 +69,44 @@ const CheckoutPage: React.FC = () => {
         }
     }, [bookingData, navigate]);
 
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (calendarRef.current && !calendarRef.current.contains(event.target as Node)) {
+                setShowCalendar(false);
+            }
+            if (guestEditRef.current && !guestEditRef.current.contains(event.target as Node)) {
+                setShowGuestEdit(false);
+            }
+        };
+
+        if (showCalendar || showGuestEdit) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showCalendar, showGuestEdit]);
+
     const handleAddonToggle = (addonId: string) => {
         setSelectedAddons(prev => ({ ...prev, [addonId]: !prev[addonId] }));
     };
+
+    const handleDateSelect = (date: Date) => {
+        setSelectedDate(date);
+        setShowCalendar(false);
+    };
+
+    const formattedDateRange = useMemo(() => {
+        if (!selectedDate) return 'Not set';
+        
+        const startDate = selectedDate;
+        const duration = bookingData?.duration || 14; // Default duration if not provided
+        const endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + duration - 1);
+        
+        return `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    }, [selectedDate, bookingData?.duration]);
 
     const calculation = useMemo(() => {
         // Use passed basePrice or default to 1200
@@ -64,6 +126,7 @@ const CheckoutPage: React.FC = () => {
         const partialAmount = totalDue * 0.30;
 
         return {
+            unitPrice,
             basePrice,
             permitsAndFees,
             addonsTotal,
@@ -75,54 +138,111 @@ const CheckoutPage: React.FC = () => {
         };
     }, [numTravelers, selectedAddons, bookingData]);
 
-    const travelerForms = Array.from({ length: numTravelers }, (_, i) => (
-        <div key={i} className={`bg-surface-darker/60 rounded-xl p-6 ${i > 0 ? 'mt-4' : ''}`}>
-             <div className="flex justify-between items-center mb-4">
-                 <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-white">{i + 1}</div>
-                    <h4 className="font-bold text-white">{i === 0 ? 'Primary Traveler' : `Traveler ${i + 1}`}</h4>
-                </div>
-                {i > 0 && (
-                     <button 
+    const handleBooking = async () => {
+        setLoading(true);
+        setAuthError(null);
+
+        // Basic validation for Lead Traveler
+        if (!fullName || !email || !password || !confirmPassword || !dob || !country) {
+            setAuthError("Please fill in all required Lead Traveler fields.");
+            setLoading(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            setAuthError("Passwords do not match");
+            setLoading(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+
+        try {
+            // 1. Sign Up User
+            const { error: signUpError } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: {
+                        full_name: fullName,
+                        gender,
+                        dob,
+                        country,
+                        phone,
+                        hear_about: hearAbout,
+                        is_anonymous: isAnonymous
+                    },
+                },
+            });
+
+            if (signUpError) {
+                throw signUpError;
+            }
+
+            // 2. Create Booking (Mock for now, normally would insert into 'bookings' table)
+            // const { error: bookingError } = await supabase.from('bookings').insert({ ... });
+
+            // 3. Navigate to confirmation
+            navigate('/booking/confirmed');
+
+        } catch (err: any) {
+            setAuthError(err.message || 'Authentication/Booking failed');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Render forms for additional travelers (Traveler 2, 3...)
+    const travelerForms = Array.from({ length: Math.max(0, numTravelers - 1) }, (_, i) => {
+        const travelerIndex = i + 2; // Start from Traveler 2
+        return (
+            <div key={i} className={`bg-surface-darker/60 rounded-xl p-6 ${i > 0 ? 'mt-4' : ''}`}>
+                 <div className="flex justify-between items-center mb-4">
+                     <div className="flex items-center gap-3">
+                        <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-white">{travelerIndex}</div>
+                        <h4 className="font-bold text-white">Traveler {travelerIndex}</h4>
+                    </div>
+                    <button 
                         onClick={() => setNumTravelers(n => Math.max(1, n - 1))}
                         className="text-xs font-bold text-primary hover:underline"
                     >
                         Remove
                     </button>
-                )}
-             </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label className="text-xs text-text-secondary mb-1 block">Full Name</label>
-                    <input type="text" placeholder="John Doe" className="w-full bg-surface-dark border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition" />
-                </div>
-                 <div>
-                    <label className="text-xs text-text-secondary mb-1 block">Date of Birth</label>
-                    <input type="text" placeholder="mm/dd/yyyy" className="w-full bg-surface-dark border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition" />
-                </div>
-                 <div>
-                    <label className="text-xs text-text-secondary mb-1 block">Passport Number</label>
-                    <input type="text" placeholder="A1234567" className="w-full bg-surface-dark border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition" />
-                </div>
-                 <div>
-                    <label className="text-xs text-text-secondary mb-1 block">Nationality</label>
-                    <select className="w-full bg-surface-dark border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition">
-                        <option>Select Country</option>
-                        {countryOptions.map(c => <option key={c.code}>{c.name}</option>)}
-                    </select>
-                </div>
-                <div className="md:col-span-2">
-                     <label className="text-xs text-text-secondary mb-1 block">Dietary or Special Requests</label>
-                    <textarea placeholder="E.g., Vegetarian, Gluten-free, Allergies..." rows={2} className="w-full bg-surface-dark border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition"></textarea>
-                </div>
-             </div>
-        </div>
-    ));
+                 </div>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="text-xs text-text-secondary mb-1 block">Full Name</label>
+                        <input type="text" placeholder="John Doe" className="w-full bg-surface-dark border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition" />
+                    </div>
+                     <div>
+                        <label className="text-xs text-text-secondary mb-1 block">Date of Birth</label>
+                        <input type="text" placeholder="mm/dd/yyyy" className="w-full bg-surface-dark border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition" />
+                    </div>
+                     <div>
+                        <label className="text-xs text-text-secondary mb-1 block">Passport Number</label>
+                        <input type="text" placeholder="A1234567" className="w-full bg-surface-dark border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition" />
+                    </div>
+                     <div>
+                        <label className="text-xs text-text-secondary mb-1 block">Nationality</label>
+                        <select className="w-full bg-surface-dark border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition">
+                            <option>Select Country</option>
+                            {countryOptions.map(c => <option key={c.code}>{c.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="md:col-span-2">
+                         <label className="text-xs text-text-secondary mb-1 block">Dietary or Special Requests</label>
+                        <textarea placeholder="E.g., Vegetarian, Gluten-free, Allergies..." rows={2} className="w-full bg-surface-dark border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition"></textarea>
+                    </div>
+                 </div>
+            </div>
+        );
+    });
 
     return (
          <>
             <header className="relative -mt-[100px] min-h-[40vh] flex items-end justify-center overflow-hidden rounded-b-2xl md:rounded-b-[3rem]">
-                <div className="absolute inset-0 z-0 bg-cover bg-center" style={{ backgroundImage: `url('${bookingData?.tourImage || 'https://lh3.googleusercontent.com/aida-public/AB6AXuDRhAgmyafMtZInsKcZjC6PERny9fQkTYXnQc2xe3Dn2hSTQ2D2bEPyiLHkfuqDOIamvdyHiV6lOBJgYm_mzEkiQeGcxj6XcjWqapph7IcKty8Mcbs7CdDGengbgwALm5rAVVQmydirCKo5JLlaeh-L3z0AJYecOSmxkI8TpR7pMITU12XLou8iXgEwQe7_3NbQK8rZDzw39TV_j5JnhmpBQ55T2U0LJGQROBZEKe8IxNVO4-xOcOfSMr99VgNtWGMAriy0J_zOV2il'}')` }}>
+                <div className="absolute inset-0 z-0 bg-cover bg-center" style={{ backgroundImage: `url('${bookingData?.tourImage || 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80'}')` }}>
                 </div>
                 <div className="absolute inset-0 z-0 bg-gradient-to-t from-background-dark via-background-dark/90 to-background-dark/60"></div>
                 <div className="relative z-10 container mx-auto px-4 pb-12 max-w-7xl">
@@ -138,11 +258,9 @@ const CheckoutPage: React.FC = () => {
                                 <>Checkout & <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-white">Payment</span></>
                             )}
                         </h1>
-                        {bookingData?.selectedDate && (
-                            <p className="text-xl text-white/80 font-medium">
-                                Start Date: {new Date(bookingData.selectedDate).toLocaleDateString('en-US', { dateStyle: 'long' })}
-                            </p>
-                        )}
+                        <p className="text-xl text-white/80 font-medium">
+                            Start Date: {selectedDate ? new Date(selectedDate).toLocaleDateString('en-US', { dateStyle: 'long' }) : 'Not set'}
+                        </p>
                     </div>
                 </div>
             </header>
@@ -175,51 +293,142 @@ const CheckoutPage: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
                     <div className="lg:col-span-2 space-y-6">
-                        {/* Contact Info */}
+                        
+                        {/* Error Message */}
+                        {authError && (
+                            <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-xl text-sm">
+                                {authError}
+                            </div>
+                        )}
+
+                        {/* Lead Traveler / Account Creation */}
                         <div className="bg-surface-dark border border-white/5 rounded-xl p-6">
-                             <div className="flex items-center gap-3 mb-4">
-                                <span className="material-symbols-outlined text-primary text-2xl">mail</span>
-                                <h3 className="text-xl font-bold text-white">Contact Information</h3>
+                             <div className="flex items-center gap-3 mb-6">
+                                <span className="material-symbols-outlined text-primary text-2xl">person_add</span>
+                                <h3 className="text-xl font-bold text-white">Lead Traveler & Account</h3>
                              </div>
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                 <div>
-                                    <label className="text-xs text-text-secondary mb-1 block">Email Address</label>
-                                    <input type="email" placeholder="you@example.com" className="w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition" />
-                                 </div>
-                                 <div>
-                                    <label className="text-xs text-text-secondary mb-1 block">Phone Number</label>
-                                    <input type="tel" placeholder="+1 (555) 000-0000" className="w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition" />
-                                 </div>
-                             </div>
-                             <div className="mt-4">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input type="checkbox" className="w-4 h-4 rounded bg-surface-darker border-white/20 text-primary focus:ring-primary" />
-                                    <span className="text-sm text-text-secondary">Yes, send me travel tips and exclusive offers for my trip to Nepal.</span>
-                                </label>
+
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-xs font-bold text-text-secondary mb-2">Full Name <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="text"
+                                        value={fullName}
+                                        onChange={(e) => setFullName(e.target.value)}
+                                        className="w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-text-secondary mb-2">Email Address <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        className="w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-text-secondary mb-2">Gender <span className="text-red-500">*</span></label>
+                                    <select
+                                        value={gender}
+                                        onChange={(e) => setGender(e.target.value)}
+                                        className="w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition appearance-none cursor-pointer"
+                                        required
+                                    >
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-text-secondary mb-2">Date of Birth <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="date"
+                                        value={dob}
+                                        onChange={(e) => setDob(e.target.value)}
+                                        className="w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition [color-scheme:dark]"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-text-secondary mb-2">Password <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        className="w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-text-secondary mb-2">Confirm Password <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="password"
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        className="w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-text-secondary mb-2">Country <span className="text-red-500">*</span></label>
+                                    <select
+                                        value={country}
+                                        onChange={(e) => setCountry(e.target.value)}
+                                        className="w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition appearance-none cursor-pointer"
+                                        required
+                                    >
+                                        <option value="">Select Country</option>
+                                        {countryOptions.map((c) => (
+                                            <option key={c.code} value={c.code}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-text-secondary mb-2">Phone</label>
+                                    <input
+                                        type="tel"
+                                        value={phone}
+                                        onChange={(e) => setPhone(e.target.value)}
+                                        className="w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition"
+                                    />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <label className="block text-xs font-bold text-text-secondary mb-2">Where did you hear about us?</label>
+                                    <select
+                                        value={hearAbout}
+                                        onChange={(e) => setHearAbout(e.target.value)}
+                                        className="w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition appearance-none cursor-pointer"
+                                    >
+                                        <option value="">Choose a option</option>
+                                        <option value="Google">Google Search</option>
+                                        <option value="Social Media">Social Media</option>
+                                        <option value="Friend">Friend Recommendation</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
                              </div>
                         </div>
 
-                        {/* Travelers Details */}
-                         <div className="bg-surface-dark border border-white/5 rounded-xl p-6">
-                            <div className="flex items-center gap-3 mb-4">
-                                <span className="material-symbols-outlined text-primary text-2xl">group</span>
-                                <h3 className="text-xl font-bold text-white">Travelers Details</h3>
-                             </div>
-                             {travelerForms}
-                             <button 
-                                onClick={() => setNumTravelers(n => n + 1)}
-                                className="mt-4 w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-white/10 rounded-lg text-sm font-bold text-white hover:border-primary hover:text-primary transition-colors"
-                            >
-                                <span className="material-symbols-outlined text-base">add_circle</span>
-                                Add Another Traveler
-                             </button>
-                              <div className="mt-4">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input type="checkbox" className="w-4 h-4 rounded bg-surface-darker border-white/20 text-primary focus:ring-primary" />
-                                    <span className="text-sm text-text-secondary">Save traveler details for future bookings.</span>
-                                </label>
-                             </div>
-                        </div>
+                        {/* Additional Travelers Details (if > 1 guest) */}
+                        {numTravelers > 1 && (
+                            <div className="bg-surface-dark border border-white/5 rounded-xl p-6">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <span className="material-symbols-outlined text-primary text-2xl">group</span>
+                                    <h3 className="text-xl font-bold text-white">Additional Travelers</h3>
+                                </div>
+                                {travelerForms}
+                                <button 
+                                    onClick={() => setNumTravelers(n => n + 1)}
+                                    className="mt-4 w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-white/10 rounded-lg text-sm font-bold text-white hover:border-primary hover:text-primary transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-base">add_circle</span>
+                                    Add Another Traveler
+                                </button>
+                            </div>
+                        )}
 
                         {/* Add-ons */}
                         <div className="bg-surface-dark border border-white/5 rounded-xl p-6">
@@ -349,23 +558,82 @@ const CheckoutPage: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="p-6">
-                                    <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/10">
+                                    <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/10 relative">
                                         <div>
                                             <p className="text-xs text-text-secondary uppercase">Dates</p>
-                                            <p className="font-bold text-white">Oct 15 - Oct 29, 2024</p>
+                                            <p className="font-bold text-white">{formattedDateRange}</p>
                                         </div>
-                                         <button className="text-xs font-bold text-primary hover:underline">Edit</button>
+                                         <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setShowCalendar(!showCalendar);
+                                            }}
+                                            className="text-xs font-bold text-primary hover:underline"
+                                        >
+                                            Edit
+                                        </button>
+                                        
+                                        {showCalendar && (
+                                            <div className="absolute top-full right-0 z-50 mt-2 bg-surface-card rounded-xl shadow-xl border border-white/10 p-4 w-[320px]">
+                                                <Calendar
+                                                    displayDate={displayDate}
+                                                    setDisplayDate={setDisplayDate}
+                                                    selectedDate={selectedDate}
+                                                    onSelectDate={handleDateSelect}
+                                                    onClose={() => setShowCalendar(false)}
+                                                    containerRef={calendarRef}
+                                                />
+                                            </div>
+                                        )}
                                     </div>
-                                     <div className="flex justify-between items-center mb-6">
+                                     <div className="flex justify-between items-center mb-6 relative">
                                         <div>
                                             <p className="text-xs text-text-secondary uppercase">Guests</p>
                                             <p className="font-bold text-white">{numTravelers} Adults</p>
                                         </div>
-                                         <button className="text-xs font-bold text-primary hover:underline">Edit</button>
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setShowGuestEdit(!showGuestEdit);
+                                            }}
+                                            className="text-xs font-bold text-primary hover:underline"
+                                        >
+                                            Edit
+                                        </button>
+                                        
+                                        {showGuestEdit && (
+                                            <div ref={guestEditRef} className="absolute top-full right-0 z-50 mt-2 bg-surface-card rounded-xl shadow-xl border border-white/10 p-4 w-[200px]">
+                                                <div className="flex flex-col gap-2">
+                                                    <label className="text-sm font-bold text-white">Number of Travelers</label>
+                                                    <div className="flex items-center justify-between bg-surface-darker rounded-lg p-2 border border-white/10">
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setNumTravelers(Math.max(1, numTravelers - 1));
+                                                            }}
+                                                            className="w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-md text-white transition-colors"
+                                                            disabled={numTravelers <= 1}
+                                                        >
+                                                            -
+                                                        </button>
+                                                        <span className="font-bold text-white">{numTravelers}</span>
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setNumTravelers(numTravelers + 1);
+                                                            }}
+                                                            className="w-8 h-8 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-md text-white transition-colors"
+                                                        >
+                                                            +
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="space-y-3 mb-6">
                                         <div className="flex justify-between text-sm">
-                                            <span className="text-text-secondary">Base Price ({numTravelers} x $1,200)</span>
+                                            <span className="text-text-secondary">Base Price ({numTravelers} x ${calculation.unitPrice.toLocaleString()})</span>
                                             <span className="text-white font-medium">${calculation.basePrice.toLocaleString()}</span>
                                         </div>
                                         <div className="flex justify-between text-sm">
@@ -406,10 +674,20 @@ const CheckoutPage: React.FC = () => {
                                         </div>
                                         <p className="text-3xl font-black text-white">${calculation.totalDue.toLocaleString()}</p>
                                     </div>
-                                    <Link to="/booking/confirmed" className="w-full py-4 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-2 group mb-4">
-                                        Complete Booking
-                                        <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
-                                    </Link>
+                                    <button 
+                                        onClick={handleBooking}
+                                        disabled={loading}
+                                        className="w-full py-4 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-2 group mb-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {loading ? (
+                                            <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                                        ) : (
+                                            <>
+                                                Complete Booking
+                                                <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                                            </>
+                                        )}
+                                    </button>
                                     <p className="text-center text-[10px] text-text-secondary">By clicking the button, you agree to our <a href="#" className="text-primary hover:underline">Terms and Conditions</a> and <a href="#" className="text-primary hover:underline">Cancellation Policy</a>.</p>
                                 </div>
                             </div>

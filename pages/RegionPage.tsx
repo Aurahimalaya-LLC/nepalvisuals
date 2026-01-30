@@ -17,8 +17,28 @@ const RegionPage: React.FC = () => {
     const { regionName } = useParams<{ regionName: string }>();
     const { regions, loading, error, refresh } = useRegionsData();
     const region: Region | undefined = React.useMemo(() => {
-      const match = regions.find(r => slugifyName(r.name) === (regionName || '').toLowerCase())
-      return match
+      if (!regionName) return undefined;
+      const targetSlug = regionName.toLowerCase();
+      
+      // 1. Try exact slug match
+      let match = regions.find(r => slugifyName(r.name) === targetSlug);
+      
+      // 2. Try direct name match (case-insensitive)
+      if (!match) {
+        match = regions.find(r => (r.name || '').trim().toLowerCase() === targetSlug);
+      }
+      
+      // 3. Try "Starts With" match on slug (e.g. "everest" matches "everest-region")
+      if (!match) {
+        match = regions.find(r => slugifyName(r.name).startsWith(targetSlug));
+      }
+
+      // 4. Special case: Check if removing "-region" from slug matches
+      if (!match) {
+         match = regions.find(r => slugifyName(r.name).replace('-region', '') === targetSlug);
+      }
+      
+      return match;
     }, [regions, regionName])
 
     if (loading) {
@@ -31,6 +51,20 @@ const RegionPage: React.FC = () => {
                 <div>
                     <h1 className="text-4xl font-bold text-primary mb-4">Create Region Page</h1>
                     <p className="text-text-secondary mb-6">We couldn’t find an existing page for <span className="font-bold text-white">{regionName}</span>. A basic dynamic view will be shown.</p>
+                    
+                    {/* Debug info: List available regions if none matched */}
+                    <div className="mb-6 p-4 bg-surface-dark/50 rounded-lg border border-white/10 text-left max-w-md mx-auto max-h-40 overflow-y-auto">
+                        <p className="text-xs text-text-secondary mb-2 uppercase tracking-wider">Available Regions:</p>
+                        <div className="flex flex-wrap gap-2">
+                            {regions.map(r => (
+                                <span key={r.id} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400">
+                                    {r.name} ({slugifyName(r.name)})
+                                </span>
+                            ))}
+                            {regions.length === 0 && <span className="text-xs text-red-400">No regions loaded.</span>}
+                        </div>
+                    </div>
+
                     <button onClick={refresh} className="inline-flex items-center gap-2 bg-primary text-white font-bold px-6 py-3 rounded-xl">
                         Retry
                         <span className="material-symbols-outlined text-sm">refresh</span>

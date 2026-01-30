@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import HomePage from './pages/HomePage';
 import TripDetailsPage from './pages/TripDetailsPage';
@@ -43,8 +43,8 @@ const PublicRoutes = () => (
             <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/about" element={<AboutPage />} />
-            <Route path="/contact" element={<ContactPage />} />
-            <Route path="/tours" element={<ToursByRegionPage />} />
+                <Route path="/contact" element={<ContactPage />} />
+                <Route path="/tours" element={<ToursByRegionPage />} />
             <Route path="/region/:regionName" element={<RegionPageLazy />} />
                 <Route path="/trip/:slug" element={<TripDetailsPage />} />
                 <Route path="/trek/:slug" element={<TripDetailsPage />} />
@@ -92,7 +92,7 @@ const AdminRoutes = () => (
 
 const App: React.FC = () => {
     return (
-        <HashRouter>
+        <BrowserRouter>
             <Routes>
                 <Route path="/admin/login" element={<AdminLoginPage />} />
                 <Route path="/admin/reset-password" element={<AdminResetPasswordPage />} />
@@ -103,7 +103,7 @@ const App: React.FC = () => {
                 } />
                 <Route path="/*" element={<PublicRoutes />} />
             </Routes>
-        </HashRouter>
+        </BrowserRouter>
     );
 };
 

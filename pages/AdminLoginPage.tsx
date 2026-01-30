@@ -27,7 +27,7 @@ const AdminLoginPage: React.FC = () => {
         const stateError = (location.state as any)?.error;
 
         if (error) {
-            console.error('OAuth Error:', error, errorDescription);
+           // console.error('OAuth Error:', error, errorDescription);
             if (error === 'server_error' && errorDescription?.includes('Unable to exchange external code')) {
                 setError('Google Login Failed: Configuration mismatch. Please check your Supabase and Google Cloud settings.');
             } else {
@@ -55,7 +55,7 @@ const AdminLoginPage: React.FC = () => {
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: `${window.location.origin}/#/admin/tours`, // Redirect back to admin panel
+                    redirectTo: `${window.location.origin}/admin/tours`, // Redirect back to admin panel
                     queryParams: {
                         access_type: 'offline',
                         prompt: 'consent',
@@ -70,6 +70,7 @@ const AdminLoginPage: React.FC = () => {
             setLoading(false);
         }
     };
+
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -102,6 +103,7 @@ const AdminLoginPage: React.FC = () => {
                     </div>
                 )}
 
+                {
                 <div className="mb-6">
                     <button
                         type="button"
@@ -121,7 +123,8 @@ const AdminLoginPage: React.FC = () => {
                             <span className="px-2 bg-white text-gray-500">Or continue with email</span>
                         </div>
                     </div>
-                </div>
+                </div> 
+                }
 
                 <form onSubmit={handleLogin} className="space-y-6">
                     <div>

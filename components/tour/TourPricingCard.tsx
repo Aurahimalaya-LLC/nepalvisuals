@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Tour } from '../../lib/services/tourService';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { supabase } from '../../lib/supabaseClient';
+import SiteLogo from '../common/SiteLogo';
 
 interface TourPricingCardProps {
     tour: Tour;
@@ -92,6 +94,16 @@ const TourPricingCard: React.FC<TourPricingCardProps> = ({
 
     const isBookingOptionSelected = selectedDate || selectedDepartureId;
 
+    // Get effective date for booking
+    const effectiveDate = useMemo(() => {
+        if (selectedDate) return selectedDate;
+        if (selectedDepartureId && tour.seasonal_prices) {
+            const dep = tour.seasonal_prices.find(sp => sp.id === selectedDepartureId);
+            if (dep) return new Date(dep.start_date);
+        }
+        return null;
+    }, [selectedDate, selectedDepartureId, tour.seasonal_prices]);
+
     // Helper to filter departures for the list
     const filteredDepartures = useMemo(() => {
         if (!tour.seasonal_prices) return [];
@@ -108,9 +120,39 @@ const TourPricingCard: React.FC<TourPricingCardProps> = ({
         }).sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
     }, [tour.seasonal_prices, filterYear, filterMonth]);
 
+    // Handle booking click
+    const navigate = useNavigate();
+    
+    const handleBookNow = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        
+        if (!isBookingOptionSelected) return;
+
+        const duration = parseInt(String(tour.duration || '0'), 10);
+
+        const bookingData = {
+            tourId: tour.id,
+            tourName: tour.name,
+            tourImage: tour.featured_image,
+            selectedDate: effectiveDate?.toISOString(),
+            selectedDepartureId,
+            guestCount,
+            basePrice,
+            totalPrice,
+            filterYear,
+            filterMonth,
+            duration
+        };
+
+        // Navigate to checkout with booking data
+        navigate('/booking/checkout', { state: bookingData });
+    };
+
     return (
-        <div className="bg-surface-dark rounded-3xl border border-white/5 p-6 shadow-xl shadow-black/20 overflow-hidden relative">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
+        <div className="bg-surface-dark rounded-3xl border border-white/5 p-6 shadow-xl shadow-black/20 relative">
+            <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
+            </div>
             <h3 className="text-xl font-bold text-white mb-6 relative z-10">Select Your Trip</h3>
             <div className="space-y-4 relative z-10">
                 
@@ -156,6 +198,7 @@ const TourPricingCard: React.FC<TourPricingCardProps> = ({
                                 onChange={(e) => setFilterMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
                                 aria-label="Filter by month"
                                 className="w-full bg-surface-darker border border-white/10 rounded-md font-medium text-white text-sm appearance-none cursor-pointer py-2 pl-3 pr-8 focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
+                                style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
                             >
                                 <option value="all">All Months</option>
                                 {monthNames.map((name, index) => <option key={name} value={index}>{name}</option>)}
@@ -251,25 +294,14 @@ const TourPricingCard: React.FC<TourPricingCardProps> = ({
 
                 {/* Action Buttons */}
                 <div className="flex flex-col gap-3">
-                    <Link 
-                        to={isBookingOptionSelected ? "/booking/checkout" : "#"}
-                        state={isBookingOptionSelected ? {
-                            tourId: tour.id,
-                            tourName: tour.name,
-                            tourImage: tour.featured_image,
-                            selectedDate: selectedDate?.toISOString(),
-                            selectedDepartureId,
-                            guestCount,
-                            basePrice,
-                            totalPrice
-                        } : undefined}
-                        className={`w-full py-4 text-white font-bold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 group ${isBookingOptionSelected ? 'bg-primary hover:bg-primary-dark shadow-primary/20' : 'bg-gray-600 cursor-not-allowed'}`}
-                        onClick={(e) => !isBookingOptionSelected && e.preventDefault()}
-                        aria-disabled={!isBookingOptionSelected}
+                    <button 
+                        onClick={handleBookNow}
+                        className={`w-full py-4 text-white font-bold rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 group ${isBookingOptionSelected ? 'bg-primary hover:bg-primary-dark shadow-primary/20 cursor-pointer' : 'bg-gray-600 cursor-not-allowed'}`}
+                        disabled={!isBookingOptionSelected}
                     >
                         {isBookingOptionSelected ? 'Book Now' : 'Choose Your Dates'}
                         <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
-                    </Link>
+                    </button>
                 </div>
 
                 {/* Support Contact */}
@@ -279,6 +311,13 @@ const TourPricingCard: React.FC<TourPricingCardProps> = ({
                         <WhatsAppIcon />
                         <span>+977 980 000 0000</span>
                     </a>
+                </div>
+
+                {/* Branding */}
+                <div className="flex justify-between items-center mt-6 pt-6 border-t border-white/10">
+                    <div className="flex flex-col items-start">
+                         <SiteLogo className="h-6 mb-1" />
+                    </div>
                 </div>
             </div>
         </div>

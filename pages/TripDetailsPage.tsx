@@ -7,6 +7,7 @@ import { ExpandableContent } from '../components/common/ExpandableContent';
 import { TripDetailsSkeleton } from '../components/skeletons/TripDetailsSkeleton';
 import { Tour } from '../lib/services/tourService';
 import { TourInfoOverlay } from '../components/tour/TourInfoOverlay';
+import { Calendar } from '../components/common/Calendar';
 import TrekMap from '../components/tour/TrekMap';
 import { WeatherService, DailyForecast } from '../lib/services/weatherService';
 import { RegionService } from '../lib/services/regionService';
@@ -190,110 +191,7 @@ const WhatsAppIcon = () => (
     <svg className="w-5 h-5 fill-current text-green-500" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.38 1.25 4.81L2 22l5.3-1.38c1.37.74 2.93 1.18 4.59 1.18h.12c5.45 0 9.9-4.45 9.9-9.91s-4.45-9.9-9.9-9.9zM17.1 15.3c-.28-.14-1.68-.83-1.94-.93-.26-.1-.45-.14-.64.14-.19.28-.73.93-.9 1.12-.17.19-.34.22-.63.07-.29-.15-1.21-.45-2.3-1.42-.85-.76-1.42-1.7-1.59-1.99-.17-.29-.02-.45.12-.59.13-.13.28-.34.42-.51.14-.17.19-.28.28-.47.1-.19.05-.36-.02-.51s-.64-1.53-.87-2.1c-.23-.56-.47-.48-.64-.48-.17 0-.36-.02-.55-.02s-.5.07-.76.36c-.26.28-.98 1-1.2 2.38-.22 1.38.28 2.76.5 2.95.22.2.98 1.58 2.38 2.2a7.6 7.6 0 002.66 1.05c.82.23 1.3.18 1.69.05.47-.16 1.35-.9 1.54-1.76.19-.86.19-1.6.14-1.76-.05-.17-.19-.26-.42-.4z"></path></svg>
 );
 
-const Calendar: React.FC<{
-    displayDate: Date;
-    setDisplayDate: (date: Date) => void;
-    selectedDate: Date | null;
-    onSelectDate: (date: Date) => void;
-    availableDates: Date[];
-    onClose: () => void;
-}> = ({ displayDate, setDisplayDate, selectedDate, onSelectDate, availableDates, onClose }) => {
-    
-    const availableDateStrings = React.useMemo(() => availableDates.map(d => d.toDateString()), [availableDates]);
 
-    const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
-    const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
-
-    const year = displayDate.getFullYear();
-    const month = displayDate.getMonth();
-
-    const daysInMonth = getDaysInMonth(year, month);
-    const firstDay = getFirstDayOfMonth(year, month);
-    
-    const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-
-    const prevMonthDays = Array.from({ length: firstDay }, (_, i) => {
-        const prevMonth = new Date(year, month, 0);
-        return prevMonth.getDate() - firstDay + i + 1;
-    });
-
-    const goToPrevMonth = () => setDisplayDate(new Date(year, month - 1, 1));
-    const goToNextMonth = () => setDisplayDate(new Date(year, month + 1, 1));
-
-    const handleDateClick = (day: number) => {
-        const newDate = new Date(year, month, day);
-        if (availableDateStrings.includes(newDate.toDateString())) {
-            onSelectDate(newDate);
-            onClose();
-        }
-    };
-
-    const handleYearChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-        const newYear = parseInt(event.target.value, 10);
-        setDisplayDate(new Date(newYear, month, 1));
-    };
-
-    const currentYear = new Date().getFullYear();
-    const years = Array.from({ length: 5 }, (_, i) => currentYear + i);
-    
-    const weekDays = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-
-    return (
-        <div className="absolute top-full left-0 mt-2 w-full bg-surface-darker border border-white/10 rounded-xl shadow-2xl p-4 z-20 animate-fadeIn">
-            <div className="flex items-center justify-between mb-4">
-                <button onClick={goToPrevMonth} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/5 transition-colors" aria-label="Previous month">
-                    <span className="material-symbols-outlined text-lg">chevron_left</span>
-                </button>
-                <div className="flex items-center gap-2">
-                    <span className="font-bold text-white text-sm">
-                        {displayDate.toLocaleString('default', { month: 'long' })}
-                    </span>
-                    <div className="relative">
-                        <select
-                            value={year}
-                            onChange={handleYearChange}
-                            aria-label="Select year"
-                            className="bg-surface-darker border border-transparent hover:border-white/10 rounded-md font-bold text-white text-sm appearance-none cursor-pointer py-1 pl-2 pr-6 focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
-                        >
-                            {years.map(y => <option key={y} value={y} className="bg-surface-darker text-white font-medium">{y}</option>)}
-                        </select>
-                        <span className="material-symbols-outlined text-text-secondary text-base absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
-                    </div>
-                </div>
-                <button onClick={goToNextMonth} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/5 transition-colors" aria-label="Next month">
-                    <span className="material-symbols-outlined text-lg">chevron_right</span>
-                </button>
-            </div>
-            <div className="grid grid-cols-7 gap-1 text-center">
-                {weekDays.map(day => <div key={day} className="text-xs font-bold text-text-secondary">{day}</div>)}
-                
-                {prevMonthDays.map(day => <div key={`prev-${day}`} className="text-text-secondary/50 p-1 text-sm">{day}</div>)}
-                
-                {days.map(day => {
-                    const currentDate = new Date(year, month, day);
-                    const isSelected = selectedDate?.toDateString() === currentDate.toDateString();
-                    const isAvailable = availableDateStrings.includes(currentDate.toDateString());
-                    
-                    const dayClass = isSelected
-                        ? "bg-primary text-white font-bold"
-                        : isAvailable
-                        ? "bg-primary/20 text-primary font-medium hover:bg-primary hover:text-white cursor-pointer"
-                        : "text-white/50 cursor-not-allowed";
-
-                    return (
-                        <div 
-                            key={day}
-                            onClick={() => handleDateClick(day)}
-                            className={`w-full aspect-square flex items-center justify-center rounded-full text-sm transition-colors ${dayClass}`}
-                        >
-                            {day}
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
-};
 
 import TourPricingCard from '../components/tour/TourPricingCard';
 import TourHighlights from '../components/tour/TourHighlights';
@@ -666,9 +564,24 @@ const TripDetailsPage: React.FC<TripDetailsPageProps> = ({ setIsHeaderVisible })
         return (total / reviewsData.length).toFixed(1);
     }, []);
 
-    const formattedSelectedDate = selectedDate 
-        ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(selectedDate)
-        : 'Select a date';
+    const formattedSelectedDate = React.useMemo(() => {
+        if (!selectedDate || !tour) return 'Select a date';
+        
+        const startDate = new Date(selectedDate);
+        const duration = parseInt(String(tour.duration || '0'), 10);
+        
+        if (duration > 1) {
+            const endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + duration - 1);
+            
+            const startFormat = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(startDate);
+            const endFormat = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(endDate);
+            
+            return `${startFormat} - ${endFormat}`;
+        }
+        
+        return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(selectedDate);
+    }, [selectedDate, tour]);
 
     const handleSelectDate = (date: Date) => {
         setSelectedDate(date);
@@ -685,6 +598,7 @@ const TripDetailsPage: React.FC<TripDetailsPageProps> = ({ setIsHeaderVisible })
     };
 
     const { totalBasePrice, fees, totalPrice } = React.useMemo(() => {
+        if (!tour) return { totalBasePrice: 0, fees: 0, totalPrice: 0 };
         const fees = 100;
         let basePrice = 0;
 
@@ -699,7 +613,7 @@ const TripDetailsPage: React.FC<TripDetailsPageProps> = ({ setIsHeaderVisible })
         const totalPrice = totalBasePrice > 0 ? totalBasePrice + fees : 0;
         
         return { totalBasePrice, fees, totalPrice };
-    }, [selectedDate, selectedDepartureId, guestCount]);
+    }, [selectedDate, selectedDepartureId, guestCount, tour]);
 
     const isBookingOptionSelected = selectedDate || selectedDepartureId;
 
@@ -720,6 +634,37 @@ const TripDetailsPage: React.FC<TripDetailsPageProps> = ({ setIsHeaderVisible })
 
     const activeSectionName = sections.find(s => s.id === activeSection)?.name || 'Overview';
     
+    const handleStickyBookNow = () => {
+        if (!tour) return;
+        
+        let effectiveDate = selectedDate;
+        if (selectedDepartureId) {
+            const departure = fixedDeparturesData.find(d => d.id === selectedDepartureId);
+            if (departure) {
+                effectiveDate = departure.startDate;
+            }
+        }
+        
+        const unitPrice = totalBasePrice > 0 ? (totalBasePrice / guestCount) : tour.price;
+        const duration = parseInt(String(tour.duration || '0'), 10);
+
+        const bookingData = {
+            tourId: tour.id,
+            tourName: tour.name,
+            tourImage: tour.featured_image,
+            selectedDate: effectiveDate?.toISOString(),
+            selectedDepartureId,
+            guestCount,
+            basePrice: unitPrice,
+            totalPrice: totalPrice || (unitPrice * guestCount + fees),
+            filterYear,
+            filterMonth,
+            duration
+        };
+        
+        navigate('/booking/checkout', { state: bookingData });
+    };
+
     if (loading) {
         return <TripDetailsSkeleton />;
     }
@@ -755,7 +700,7 @@ const TripDetailsPage: React.FC<TripDetailsPageProps> = ({ setIsHeaderVisible })
             </Helmet>
             <div className={`fixed top-0 left-0 right-0 z-[1000] transition-all duration-300 ${isSticky ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`}>
                 <div className="relative container mx-auto px-4">
-                    <div className="bg-white/95 backdrop-blur-md border-b border-gray-200 p-2 flex items-center gap-4 shadow-lg transition-colors duration-300 rounded-b-2xl">
+                    <div className="bg-black/95 backdrop-blur-md border-b border-gray-200 p-2 flex items-center gap-4 shadow-lg transition-colors duration-300 rounded-b-2xl">
                         {/* Tour Info (Region Display) */}
                         <div className="hidden xl:flex flex-col min-w-[200px] flex-shrink-0">
                             <h3 className="font-bold text-black text-sm leading-tight truncate max-w-[250px]">{tour.name}</h3>
@@ -787,15 +732,18 @@ const TripDetailsPage: React.FC<TripDetailsPageProps> = ({ setIsHeaderVisible })
                             ))}
                         </div>
 
-                        <Link to="/booking/checkout" className="bg-primary hover:bg-primary-dark text-white px-4 py-2.5 rounded-full text-sm font-bold transition-all items-center gap-2 shadow-lg shadow-primary/20 flex whitespace-nowrap flex-shrink-0">
+                        <button 
+                            onClick={handleStickyBookNow}
+                            className="bg-primary hover:bg-primary-dark text-white px-4 py-2.5 rounded-full text-sm font-bold transition-all items-center gap-2 shadow-lg shadow-primary/20 flex whitespace-nowrap flex-shrink-0"
+                        >
                             <span>Book Now</span>
                             <span className="material-symbols-outlined text-[18px] hidden sm:inline">arrow_forward</span>
-                        </Link>
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <header ref={pageHeaderRef} className="relative -mt-[100px] min-h-[70vh] overflow-hidden rounded-b-2xl md:rounded-b-[3rem] row-start-1 col-start-1">
+            <header ref={pageHeaderRef} className="relative -mt-[100px] min-h-[70vh] overflow-hidden row-start-1 col-start-1">
                 <div className="absolute inset-0 z-0 bg-cover bg-center" style={{ backgroundImage: `url('${tour.featured_image || 'https://lh3.googleusercontent.com/aida-public/AB6AXuDRhAgmyafMtZInsKcZjC6PERny9fQkTYXnQc2xe3Dn2hSTQ2D2bEPyiLHkfuqDOIamvdyHiV6lOBJgYm_mzEkiQeGcxj6XcjWqapph7IcKty8Mcbs7CdDGengbgwALm5rAVVQmydirCKo5JLlaeh-L3z0AJYecOSmxkI8TpR7pMITU12XLou8iXgEwQe7_3NbQK8rZDzw39TV_j5JnhmpBQ55T2U0LJGQROBZEKe8IxNVO4-xOcOfSMr99VgNtWGMAriy0J_zOV2il'}')` }}>
                 </div>
                 <div className="absolute inset-0 z-0 bg-gradient-to-t from-background-dark via-background-dark/50 to-transparent"></div>
@@ -1094,6 +1042,7 @@ const TripDetailsPage: React.FC<TripDetailsPageProps> = ({ setIsHeaderVisible })
                                     onSelectDate={handleSelectDate}
                                     availableDates={availableDates}
                                     onClose={() => setIsCalendarOpen(false)}
+                                    containerRef={calendarRef}
                                 />
                             </TourPricingCard>
                         </div>
