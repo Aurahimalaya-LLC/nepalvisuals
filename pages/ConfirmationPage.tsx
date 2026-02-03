@@ -1,8 +1,65 @@
 
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+
+const addonsList = [
+    { id: 'privateRoom', name: 'Private Room Upgrade', price: 350 },
+    { id: 'porter', name: 'Extra Porter Weight (10kg)', price: 150 },
+    { id: 'helicopter', name: 'Helicopter Return', price: 900 },
+    { id: 'transfer', name: 'Private Luxury Transfer', price: 60 },
+];
 
 const ConfirmationPage: React.FC = () => {
+    const location = useLocation();
+    const navigate = useNavigate();
+    
+    // Restore state from LocalStorage if missing (Handle Reload)
+    const state = location.state || (() => {
+        try {
+            const saved = localStorage.getItem('bookingConfirmation');
+            return saved ? JSON.parse(saved) : {};
+        } catch { return {}; }
+    })();
+
+    const { booking, tourName, email, name, bookingRef, numTravelers, calculation, selectedAddons, paymentStatus, dates } = state;
+
+    useEffect(() => {
+        if (!state.booking && !state.bookingRef) {
+            // Only redirect if absolutely no data (not even in local storage)
+            // navigate('/');
+        }
+    }, [state, navigate]);
+
+    // Defaults for preview if no state
+    const displayRef = bookingRef || "NV-8293-EBC";
+    const displayName = name || "Traveler";
+    const displayTour = tourName || "Everest Base Camp Trek";
+    const displayEmail = email || "your email";
+    
+    // Determine status: DB record > passed state > default
+    const displayStatus = booking?.payment_status || paymentStatus || "Paid in Full";
+
+    // Default calculation if missing (fallback for preview)
+    const calc = calculation || {
+        unitPrice: 1200,
+        basePrice: 2400,
+        permitsAndFees: 100,
+        addonsTotal: 410,
+        earlyBirdDiscount: -500,
+        subtotal: 2410,
+        taxes: 241,
+        totalDue: 2651,
+        partialAmount: 795 // Dummy partial
+    };
+    
+    const guestCount = numTravelers || 2;
+    const activeAddons = selectedAddons || { privateRoom: true, transfer: true };
+    
+    // Determine amount paid to display
+    const amountPaid = displayStatus === 'Deposit Paid' 
+        ? (calc.partialAmount || calc.totalDue * 0.3) 
+        : calc.totalDue;
+
     return (
         <>
             <header className="relative -mt-[100px] min-h-[40vh] flex items-end justify-center overflow-hidden rounded-b-2xl md:rounded-b-[3rem]">
@@ -58,16 +115,16 @@ const ConfirmationPage: React.FC = () => {
                             </div>
                             <h2 className="text-3xl md:text-4xl lg:text-5xl font-black text-white mb-4 tracking-tight">Booking Confirmed!</h2>
                             <p className="text-text-secondary text-lg mb-8 max-w-xl mx-auto leading-relaxed">
-                                Thank you, <span className="text-white font-bold">John</span>! Your spot on the <span className="text-primary font-bold">Everest Base Camp Trek</span> has been successfully reserved.
+                                Thank you, <span className="text-white font-bold">{displayName}</span>! Your spot on the <span className="text-primary font-bold">{displayTour}</span> has been successfully reserved.
                             </p>
                             <div className="inline-flex flex-col sm:flex-row items-center gap-4 bg-surface-darker/50 border border-white/10 rounded-2xl p-2 pr-6 mb-8 hover:border-white/20 transition-colors">
                                 <div className="bg-white/5 rounded-xl px-4 py-3">
                                     <p className="text-[10px] text-text-secondary uppercase tracking-widest font-bold">Booking Reference</p>
-                                    <p className="text-xl font-mono font-bold text-white tracking-widest">NV-8293-EBC</p>
+                                    <p className="text-xl font-mono font-bold text-white tracking-widest">{displayRef}</p>
                                 </div>
                                 <div className="h-8 w-px bg-white/10 hidden sm:block"></div>
                                 <p className="text-sm text-text-secondary">
-                                    Confirmation sent to <span className="text-white font-bold">john.doe@example.com</span>
+                                    Confirmation sent to <span className="text-white font-bold">{displayEmail}</span>
                                 </p>
                             </div>
                             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -101,28 +158,28 @@ const ConfirmationPage: React.FC = () => {
                                     <span className="material-symbols-outlined text-2xl text-primary mt-1">calendar_month</span>
                                     <div>
                                         <p className="text-sm text-text-secondary">Dates</p>
-                                        <p className="text-lg font-bold text-white">Oct 15, 2024 - Oct 28, 2024</p>
+                                        <p className="text-lg font-bold text-white">{booking?.dates || dates || "Dates Pending"}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-start gap-4">
                                     <span className="material-symbols-outlined text-2xl text-primary mt-1">group</span>
                                     <div>
                                         <p className="text-sm text-text-secondary">Guests</p>
-                                        <p className="text-lg font-bold text-white">2 Adults</p>
+                                        <p className="text-lg font-bold text-white">{guestCount} {guestCount === 1 ? 'Person' : 'People'}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-start gap-4">
                                     <span className="material-symbols-outlined text-2xl text-primary mt-1">bed</span>
                                     <div>
                                         <p className="text-sm text-text-secondary">Accommodation</p>
-                                        <p className="text-lg font-bold text-white">Teahouse + Private Room Upgrade</p>
+                                        <p className="text-lg font-bold text-white">Teahouse {activeAddons?.privateRoom ? '+ Private Room' : ''}</p>
                                     </div>
                                 </div>
                                 <div className="flex items-start gap-4">
                                     <span className="material-symbols-outlined text-2xl text-primary mt-1">local_airport</span>
                                     <div>
                                         <p className="text-sm text-text-secondary">Transport</p>
-                                        <p className="text-lg font-bold text-white">Flight (KTM-LUK) + Private Transfer</p>
+                                        <p className="text-lg font-bold text-white">Flight (KTM-LUK) {activeAddons?.transfer ? '+ Private Transfer' : ''}</p>
                                     </div>
                                 </div>
                             </div>
@@ -153,7 +210,7 @@ const ConfirmationPage: React.FC = () => {
                                     <img alt="Everest Base Camp Trek" className="w-full h-full object-cover grayscale-[20%]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDRhAgmyafMtZInsKcZjC6PERny9fQkTYXnQc2xe3Dn2hSTQ2D2bEPyiLHkfuqDOIamvdyHiV6lOBJgYm_mzEkiQeGcxj6XcjWqapph7IcKty8Mcbs7CdDGengbgwALm5rAVVQmydirCKo5JLlaeh-L3z0AJYecOSmxkI8TpR7pMITU12XLou8iXgEwQe7_3NbQK8rZDzw39TV_j5JnhmpBQ55T2U0LJGQROBZEKe8IxNVO4-xOcOfSMr99VgNtWGMAriy0J_zOV2il" />
                                     <div className="absolute inset-0 bg-gradient-to-t from-surface-dark to-transparent"></div>
                                     <div className="absolute top-4 right-4 bg-green-500 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wide shadow-lg">
-                                        Paid in Full
+                                        {displayStatus}
                                     </div>
                                     <div className="absolute bottom-4 left-6">
                                         <div className="inline-flex items-center gap-1 bg-primary/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-md mb-2">
@@ -167,32 +224,32 @@ const ConfirmationPage: React.FC = () => {
                                     {/* Pricing Details */}
                                     <div className="space-y-3 mb-6">
                                         <div className="flex justify-between text-sm">
-                                            <span className="text-text-secondary">Base Price (2 x $1,200)</span>
-                                            <span className="text-white font-medium">$2,400</span>
+                                            <span className="text-text-secondary">Base Price ({guestCount} x ${calc.unitPrice?.toLocaleString()})</span>
+                                            <span className="text-white font-medium">${calc.basePrice?.toLocaleString()}</span>
                                         </div>
                                         <div className="flex justify-between text-sm">
                                             <span className="text-text-secondary">Permits &amp; Fees</span>
-                                            <span className="text-white font-medium">$100</span>
+                                            <span className="text-white font-medium">${calc.permitsAndFees?.toLocaleString()}</span>
                                         </div>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-text-secondary">Private Room Upgrade</span>
-                                            <span className="text-white font-medium">$350</span>
-                                        </div>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-text-secondary">Private Transfer</span>
-                                            <span className="text-white font-medium">$60</span>
-                                        </div>
+                                        
+                                        {addonsList.map(addon => activeAddons[addon.id] && (
+                                            <div key={addon.id} className="flex justify-between text-sm">
+                                                <span className="text-text-secondary">{addon.name}</span>
+                                                <span className="text-white font-medium">${addon.price}</span>
+                                            </div>
+                                        ))}
+
                                         <div className="flex justify-between text-sm">
                                             <span className="text-text-secondary">Early Bird Discount</span>
-                                            <span className="text-green-500 font-medium">-$500</span>
+                                            <span className="text-green-500 font-medium">-${Math.abs(calc.earlyBirdDiscount || 0).toLocaleString()}</span>
                                         </div>
                                         <div className="flex justify-between text-sm pt-3 border-t border-white/10">
                                             <span className="text-text-secondary">Subtotal</span>
-                                            <span className="text-white font-medium">$2,410</span>
+                                            <span className="text-white font-medium">${calc.subtotal?.toLocaleString()}</span>
                                         </div>
                                         <div className="flex justify-between text-sm">
                                             <span className="text-text-secondary">Taxes (10%)</span>
-                                            <span className="text-white font-medium">$241</span>
+                                            <span className="text-white font-medium">${calc.taxes?.toLocaleString()}</span>
                                         </div>
                                     </div>
                                     <div className="flex justify-between items-end mb-6 pt-4 border-t border-white/10">
@@ -200,7 +257,7 @@ const ConfirmationPage: React.FC = () => {
                                             <p className="text-xs text-text-secondary uppercase mb-1">Amount Paid</p>
                                             <p className="text-sm text-text-secondary">USD</p>
                                         </div>
-                                        <p className="text-3xl font-black text-white">$2,651</p>
+                                        <p className="text-3xl font-black text-white">${amountPaid?.toLocaleString()}</p>
                                     </div>
                                     <button className="w-full py-4 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-2 group mb-4">
                                         Download Invoice

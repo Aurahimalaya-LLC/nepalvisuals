@@ -15,12 +15,12 @@ const testimonials = [
     { name: 'Priya Ayyangar', review: 'Incredible trek with stunning scenery. The organization was top-notch from start to finish. The team handled everything professionally.', avatar: 'https://randomuser.me/api/portraits/women/79.jpg' },
 ];
 
-const partners = [
-    { name: 'Himalayan Advenure', logo: 'https://i.imgur.com/3Cn1g28.png' },
-    { name: 'EcoTrek Global', logo: 'https://i.imgur.com/3Cn1g28.png' },
-    { name: 'Summit International', logo: 'https://i.imgur.com/3Cn1g28.png' },
-    { name: 'Porter Welfare Fund', logo: 'https://i.imgur.com/3Cn1g28.png' },
-];
+// const partners = [
+//     { name: 'Himalayan Advenure', logo: 'https://i.imgur.com/3Cn1g28.png' },
+//     { name: 'EcoTrek Global', logo: 'https://i.imgur.com/3Cn1g28.png' },
+//     { name: 'Summit International', logo: 'https://i.imgur.com/3Cn1g28.png' },
+//     { name: 'Porter Welfare Fund', logo: 'https://i.imgur.com/3Cn1g28.png' },
+// ];
 
 const AboutPage: React.FC = () => {
     return (
@@ -138,13 +138,13 @@ const AboutPage: React.FC = () => {
                         <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">Our Trusted Partners</h2>
                         <p className="text-text-secondary">We collaborate with the best to ensure the highest standards of safety and service.</p>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+                    {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
                         {partners.map((p, i) => (
                             <div key={i} className="bg-surface-dark p-6 rounded-2xl border border-white/5 flex items-center justify-center grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all">
                                 <img src={p.logo.replace("h-10", "h-8")} alt={p.name} className="max-h-12" />
                             </div>
                         ))}
-                    </div>
+                    </div> */}
                 </section>
 
                 <section className="bg-gradient-to-br from-secondary to-primary rounded-3xl p-8 md:p-12 text-center relative overflow-hidden">

@@ -4,6 +4,69 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getCountries } from '../lib/utils/countries';
 import { Calendar } from '../components/common/Calendar';
 import { supabase } from '../lib/supabaseClient';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+
+// Initialize Stripe
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_TYooMQauvdEDq54NiTphI7jx');
+
+const CheckoutForm = ({ onSuccess, onError, amount }: { onSuccess: () => void, onError: (msg: string) => void, amount: number }) => {
+    const stripe = useStripe();
+    const elements = useElements();
+    const [isLoading, setIsLoading] = useState(false);
+    const [message, setMessage] = useState<string | null>(null);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!stripe || !elements) return;
+
+        setIsLoading(true);
+
+        const { error, paymentIntent } = await stripe.confirmPayment({
+            elements,
+            confirmParams: {
+                return_url: window.location.origin + '/booking/confirmed', 
+            },
+            redirect: 'if_required',
+        });
+
+        if (error) {
+            setMessage(error.message ?? "An unexpected error occurred.");
+            onError(error.message ?? "Payment failed");
+        } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+            onSuccess();
+        } else {
+             setMessage("Payment status: " + paymentIntent?.status);
+        }
+
+        setIsLoading(false);
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-6">
+            <PaymentElement id="payment-element" options={{layout: "tabs"}} />
+            {message && <div className="text-red-500 text-sm bg-red-500/10 p-3 rounded-lg border border-red-500/20">{message}</div>}
+            <button
+                disabled={isLoading || !stripe || !elements}
+                id="submit"
+                className="w-full py-4 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 shadow-lg shadow-primary/25"
+            >
+                {isLoading ? (
+                    <>
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        Processing...
+                    </>
+                ) : (
+                    <>
+                        <span className="material-symbols-outlined">lock</span>
+                        Pay ${amount.toLocaleString()}
+                    </>
+                )}
+            </button>
+        </form>
+    );
+};
 
 const countryOptions = getCountries();
 
@@ -18,17 +81,14 @@ const CheckoutPage: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
     
-    const bookingData = location.state as {
-        tourId: string;
-        tourName: string;
-        tourImage: string;
-        selectedDate: string | undefined;
-        selectedDepartureId: string | null;
-        guestCount: number;
-        basePrice: number;
-        totalPrice: number;
-        duration?: number;
-    } | undefined;
+    // Persistence: Recover booking data from LocalStorage if page reloaded/redirected
+    const [bookingData, setBookingData] = useState<any>(() => {
+        if (location.state) return location.state;
+        const saved = localStorage.getItem('pendingBooking');
+        try {
+            return saved ? JSON.parse(saved).bookingData : undefined;
+        } catch (e) { return undefined; }
+    });
 
     const [numTravelers, setNumTravelers] = useState(bookingData?.guestCount || 2);
     const [selectedDate, setSelectedDate] = useState<Date | null>(
@@ -47,19 +107,78 @@ const CheckoutPage: React.FC = () => {
     // Lead Traveler / Signup State
     const [loading, setLoading] = useState(false);
     const [authError, setAuthError] = useState<string | null>(null);
-    const [isAnonymous, setIsAnonymous] = useState(false);
     const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [gender, setGender] = useState('Male');
     const [dob, setDob] = useState('');
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
     const [country, setCountry] = useState('');
     const [phone, setPhone] = useState('');
     const [hearAbout, setHearAbout] = useState('');
+    const [agreeTerms, setAgreeTerms] = useState(false);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+    const [isExistingUser, setIsExistingUser] = useState(false);
+
+    // Restore Form Data from LocalStorage on Mount
+    useEffect(() => {
+        const saved = localStorage.getItem('pendingBooking');
+        if (saved && !location.state) {
+            try {
+                const parsed = JSON.parse(saved);
+                
+                // Restore Booking Data (Tour Info)
+                if (parsed.bookingData) {
+                     setBookingData(parsed.bookingData);
+                }
+
+                // Restore Form Data (User Inputs)
+                if (parsed.formData) {
+                    const fd = parsed.formData;
+                    setNumTravelers(fd.numTravelers);
+                    if (fd.selectedDate) setSelectedDate(new Date(fd.selectedDate));
+                    setFullName(fd.fullName || '');
+                    setEmail(fd.email || '');
+                    setPhone(fd.phone || '');
+                    setCountry(fd.country || '');
+                    setGender(fd.gender || 'Male');
+                    setDob(fd.dob || '');
+                    setHearAbout(fd.hearAbout || '');
+                    setIsExistingUser(fd.isExistingUser || false);
+                    if (fd.paymentMethod) setPaymentMethod(fd.paymentMethod);
+                    if (fd.selectedAddons) setSelectedAddons(fd.selectedAddons);
+                }
+            } catch (e) { /* console.error("Error restoring state", e); */ }
+        }
+    }, [location.state]);
 
     const [showGuestEdit, setShowGuestEdit] = useState(false);
     const guestEditRef = useRef<HTMLDivElement>(null);
+    
+    // OTP State
+    const [showOtpModal, setShowOtpModal] = useState(false);
+    // Initialize with 8 digits (User reported receiving 8 digits). 
+    const [otp, setOtp] = useState(new Array(8).fill('')); 
+    const [generatedOtp, setGeneratedOtp] = useState<string | null>(null);
+    const [otpError, setOtpError] = useState<string | null>(null);
+    const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+    const [resendTimer, setResendTimer] = useState(0);
+
+    // New State for Stripe & Validation
+    const [showErrorPopup, setShowErrorPopup] = useState(false);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [clientSecret, setClientSecret] = useState("");
+    const [verifiedUser, setVerifiedUser] = useState<any>(null);
+
+
+    // Timer for Resend OTP
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (resendTimer > 0) {
+            interval = setInterval(() => {
+                setResendTimer((prev) => prev - 1);
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [resendTimer]);
 
     // Redirect if no booking data is present (optional, or show default/empty state)
     useEffect(() => {
@@ -95,6 +214,49 @@ const CheckoutPage: React.FC = () => {
     const handleDateSelect = (date: Date) => {
         setSelectedDate(date);
         setShowCalendar(false);
+    };
+
+    const checkUserExistence = async () => {
+        if (!email || !email.includes('@')) return;
+
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('email', email.trim().toLowerCase())
+                .single();
+
+            if (data) {
+                // User exists with this email
+                // We check if the name roughly matches to confirm identity context
+                // but strictly speaking, if email exists, they must login.
+                const dbName = (data.full_name || '').toLowerCase().trim();
+                const inputName = fullName.toLowerCase().trim();
+
+                // If name is provided and matches, or just email matches (implied existing account)
+                // The user prompt specifically asked: "check if the user exists with same name and corresponding mail"
+                // So we prioritize the match.
+                if (inputName && dbName === inputName) {
+                     setIsExistingUser(true);
+                     setFieldErrors(prev => {
+                         const newErrors = { ...prev };
+                         return newErrors;
+                     });
+                } else if (inputName) {
+                    // Email exists but name mismatch
+                    // "if the mail and full name are non correspondent and entirely new a new customer should be formed"
+                    // So we treat this as a new customer flow (which implies updating the profile/identity).
+                    setIsExistingUser(false);
+                } else {
+                    // Only email entered so far
+                    setIsExistingUser(true);
+                }
+            } else {
+                setIsExistingUser(false);
+            }
+        } catch (err) {
+            setIsExistingUser(false);
+        }
     };
 
     const formattedDateRange = useMemo(() => {
@@ -138,60 +300,382 @@ const CheckoutPage: React.FC = () => {
         };
     }, [numTravelers, selectedAddons, bookingData]);
 
-    const handleBooking = async () => {
-        setLoading(true);
-        setAuthError(null);
+    const validateForm = () => {
+        const errors: Record<string, string> = {};
+        
+        if (!selectedDate) errors.selectedDate = "Please select a trip date";
+        if (numTravelers < 1) errors.numTravelers = "At least 1 traveler is required";
+        
+        if (!fullName.trim() || fullName.length < 2) errors.fullName = "Full name must be at least 2 characters";
+        if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) errors.email = "Please enter a valid email address";
+        if (!dob) errors.dob = "Date of birth is required";
+        
+        if (!country) errors.country = "Please select a country";
+        if (!agreeTerms) errors.agreeTerms = "You must agree to the Terms and Conditions";
 
-        // Basic validation for Lead Traveler
-        if (!fullName || !email || !password || !confirmPassword || !dob || !country) {
-            setAuthError("Please fill in all required Lead Traveler fields.");
-            setLoading(false);
+        setFieldErrors(errors);
+        
+        // Show calendar if date is missing
+        if (errors.selectedDate) {
+            setShowCalendar(true);
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            return;
         }
+        
+        return Object.keys(errors).length === 0;
+    };
 
-        if (password !== confirmPassword) {
-            setAuthError("Passwords do not match");
-            setLoading(false);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            return;
-        }
-
+    const initiatePayment = async (overrideData?: { email?: string, name?: string, paymentMethod?: string, totalDue?: number, partialAmount?: number }) => {
         try {
-            // 1. Sign Up User
-            const { error: signUpError } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    data: {
-                        full_name: fullName,
-                        gender,
-                        dob,
-                        country,
-                        phone,
-                        hear_about: hearAbout,
-                        is_anonymous: isAnonymous
-                    },
-                },
+            const d = overrideData || {};
+            const mail = d.email || email;
+            const name = d.name || fullName;
+            const method = d.paymentMethod || paymentMethod;
+            
+            // Use override amounts if provided, otherwise fallback to calculation
+            const total = d.totalDue ?? calculation.totalDue;
+            const partial = d.partialAmount ?? calculation.partialAmount;
+            
+            const amount = method === 'partial' ? partial : total;
+            
+            const { data, error } = await supabase.functions.invoke('payment-sheet', {
+                body: {
+                    amount: amount,
+                    currency: 'usd',
+                    email: mail,
+                    name: name
+                }
             });
 
-            if (signUpError) {
-                throw signUpError;
+            if (error) throw error;
+            if (data?.clientSecret) {
+                setClientSecret(data.clientSecret);
+                setShowPaymentModal(true);
+            } else {
+                throw new Error("Invalid response from payment server");
             }
-
-            // 2. Create Booking (Mock for now, normally would insert into 'bookings' table)
-            // const { error: bookingError } = await supabase.from('bookings').insert({ ... });
-
-            // 3. Navigate to confirmation
-            navigate('/booking/confirmed');
-
-        } catch (err: any) {
-            setAuthError(err.message || 'Authentication/Booking failed');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch (e: any) {
+            setAuthError("Payment initialization failed: " + e.message);
         } finally {
             setLoading(false);
         }
     };
+
+    const handleBooking = async () => {
+        setLoading(true);
+        setAuthError(null);
+
+        if (!validateForm()) {
+            setLoading(false);
+            if (!selectedDate) {
+                 window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+            return;
+        }
+        
+        try {
+            // Check Identity
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('email', email.trim().toLowerCase())
+                .maybeSingle();
+
+            if (data) {
+                const dbName = (data.full_name || '').toLowerCase().trim();
+                const inputName = fullName.toLowerCase().trim();
+                
+                if (dbName !== inputName && dbName !== '') {
+                    setShowErrorPopup(true);
+                    setLoading(false);
+                    return;
+                }
+            }
+            
+            // Proceed to OTP
+            const { error: otpError } = await supabase.auth.signInWithOtp({
+                email: email.trim(),
+                options: {
+                    shouldCreateUser: true,
+                    data: {
+                        full_name: fullName,
+                        phone: phone,
+                        country: country,
+                        gender: gender,
+                        dob: dob,
+                        hear_about: hearAbout,
+                    },
+                }
+            });
+
+            if (otpError) throw otpError;
+
+            setOtp(new Array(8).fill(''));
+            setShowOtpModal(true);
+            setResendTimer(60); 
+            setLoading(false);
+
+        } catch (err: any) {
+            setAuthError(err.message || "Failed to process request.");
+            setLoading(false);
+        }
+    };
+
+    const handleResendOtp = async () => {
+        if (resendTimer > 0) return;
+        setLoading(true);
+        setOtpError(null);
+        
+        try {
+            // console.log("Resending OTP to:", email);
+            const { error } = await supabase.auth.signInWithOtp({
+                email: email,
+                options: {
+                    shouldCreateUser: true,
+                    emailRedirectTo: `${window.location.origin}/booking/checkout`,
+                },
+            });
+
+            if (error) throw error;
+            
+            setResendTimer(60);
+            alert("New code sent! Please check your email.");
+        } catch (err: any) {
+            // console.error("Resend Error:", err);
+            setOtpError(err.message || "Failed to resend code.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Listen for Auth Changes (Link Click in other tab or this tab)
+    useEffect(() => {
+        // Immediate check on mount
+        const checkCurrentSession = async () => {
+             const saved = localStorage.getItem('pendingBooking');
+             const { data: { session } } = await supabase.auth.getSession();
+             
+             if (session?.user && saved) {
+                 // console.log("Found existing session on Checkout mount with pending booking!");
+                 try {
+                    const parsed = JSON.parse(saved);
+                    if (parsed.formData) {
+                        await handlePostOtpVerification(session.user, parsed.formData);
+                    }
+                } catch (e) { /* console.error("Error parsing", e); */ }
+             }
+        };
+        checkCurrentSession();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            // Check for pending booking from Magic Link return
+            const saved = localStorage.getItem('pendingBooking');
+            
+            if (event === 'SIGNED_IN' && session?.user && saved) {
+                // User clicked Magic Link (in this tab or another synced tab)
+                // console.log("User signed in via link with pending booking!", session.user.email);
+                
+                try {
+                    const parsed = JSON.parse(saved);
+                    // Trigger booking finalization automatically with saved data
+                    if (parsed.formData) {
+                        await handlePostOtpVerification(session.user, parsed.formData);
+                    }
+                } catch (e) {
+                    // console.error("Error parsing pending booking:", e);
+                }
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    const handlePaymentSuccess = async () => {
+        if (!verifiedUser) {
+            setAuthError("User not identified. Please contact support.");
+            return;
+        }
+
+        try {
+            setLoading(true);
+            
+            // 3. Create Booking Record
+            const bookingRef = `NV-${Date.now().toString().slice(-4)}-${(bookingData?.tourId || 'TRIP').slice(0, 3).toUpperCase()}`;
+            const statusStr = paymentMethod === 'full' ? 'Paid in Full' : 'Deposit Paid';
+            
+            const { data: bookingDataResult, error: bookingError } = await supabase
+                .from('bookings')
+                .insert({
+                    user_id: verifiedUser.id,
+                    tour_id: bookingData?.tourId, 
+                    dates: formattedDateRange,
+                    total_price: calculation.totalDue,
+                    status: 'Confirmed',
+                    payment_status: statusStr,
+                })
+                .select()
+                .single();
+
+            if (bookingError) throw bookingError;
+
+            // 4. Finalize & Redirect
+            localStorage.removeItem('pendingBooking');
+            setShowPaymentModal(false);
+            
+            const confirmationState = {
+                booking: bookingDataResult,
+                bookingRef,
+                tourName: bookingData?.tourName,
+                email: email,
+                name: fullName,
+                numTravelers,
+                calculation,
+                selectedAddons,
+                paymentStatus: statusStr,
+                dates: formattedDateRange
+            };
+
+            localStorage.setItem('bookingConfirmation', JSON.stringify(confirmationState));
+
+            navigate('/booking/confirmed', {
+                state: confirmationState
+            });
+            
+        } catch (err: any) {
+            // console.error("Booking Creation Error:", err);
+            setAuthError("Booking Creation Failed: " + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handlePostOtpVerification = async (user: any, overrideData?: any) => {
+        setVerifiedUser(user);
+        
+        // Prepare data for profile update (using current state or override)
+        const d = overrideData || {
+            fullName, phone, country, gender, dob, hearAbout, email, isExistingUser, paymentMethod, 
+            totalDue: calculation.totalDue, partialAmount: calculation.partialAmount, selectedAddons
+        };
+
+        // If we have override data (restored session), we should update the UI state to match
+        if (overrideData) {
+            if (d.fullName) setFullName(d.fullName);
+            if (d.phone) setPhone(d.phone);
+            if (d.country) setCountry(d.country);
+            if (d.gender) setGender(d.gender);
+            if (d.dob) setDob(d.dob);
+            if (d.hearAbout) setHearAbout(d.hearAbout);
+            if (d.email) setEmail(d.email);
+            if (d.numTravelers) setNumTravelers(d.numTravelers);
+            if (d.selectedAddons) setSelectedAddons(d.selectedAddons);
+            // bookingData is handled by useState initializer from localStorage
+        }
+
+        try {
+            setLoading(true);
+            
+            // If new user/mismatch, update profile
+            if (!d.isExistingUser && user) {
+                // 1. Update Auth Metadata
+                const { error: authUpdateError } = await supabase.auth.updateUser({
+                    data: {
+                        full_name: d.fullName,
+                        phone: d.phone,
+                        country: d.country,
+                        gender: d.gender,
+                        dob: d.dob,
+                        hear_about: d.hearAbout,
+                    }
+                });
+            
+                if (authUpdateError) { /* console.error("Auth update error:", authUpdateError); */ }
+            
+                // 2. Insert into Profiles Table
+                const { error: profileError } = await supabase.from('profiles').upsert({
+                    id: user.id,
+                    email: d.email,
+                    full_name: d.fullName,
+                    updated_at: new Date().toISOString(),
+                });
+                
+                if (profileError) { /* console.error('Error updating profile:', profileError); */ }
+            }
+
+            // Proceed to Payment
+            setShowOtpModal(false);
+            
+            // Pass the relevant data to initiatePayment
+            await initiatePayment({
+                email: d.email,
+                name: d.fullName,
+                paymentMethod: d.paymentMethod,
+                // We assume calculation amounts (totalDue/partialAmount) are not in overrideData (which is formData),
+                // so we rely on calculation state or optional props.
+                // If overrideData comes from localStorage parsed.formData, it has: numTravelers, etc.
+                // It does NOT have calculated amounts.
+                // But initiatePayment will fallback to `calculation` state.
+                // Since this runs after mount, `calculation` should be correct based on `bookingData` and `numTravelers`.
+            });
+            
+        } catch (err: any) {
+            // console.error("Profile Update Error:", err);
+            setOtpError("Failed to update profile. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyOtp = async () => {
+        const token = otp.join('');
+        // Supabase standard is 6, but we'll be flexible if config changes
+        if (token.length < 6) {
+            setOtpError("Please enter the full code.");
+            return;
+        }
+
+        setLoading(true);
+        setOtpError(null);
+
+        try {
+            // Verify Real OTP
+            const { data, error } = await supabase.auth.verifyOtp({
+                email,
+                token,
+                type: 'email',
+            });
+
+            if (error) throw error;
+
+            await handlePostOtpVerification(data.user);
+            
+        } catch (err: any) {
+            // console.error("Verification Error:", err);
+            setOtpError(err.message || "Failed to verify code.");
+            setLoading(false);
+        }
+    };
+
+    const handleOtpChange = (element: HTMLInputElement, index: number) => {
+        if (isNaN(Number(element.value))) return false;
+
+        setOtp([...otp.map((d, idx) => (idx === index ? element.value : d))]);
+
+        // Focus next input
+        if (element.nextSibling && element.value !== "") {
+            (element.nextSibling as HTMLInputElement).focus();
+        }
+    };
+
+    const handleOtpKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+        if (e.key === "Backspace") {
+            if (otp[index] === "" && index > 0) {
+                 // Focus previous input if current is empty
+                 const prevInput = otpInputRefs.current[index - 1];
+                 if (prevInput) prevInput.focus();
+            }
+        }
+    };
+
 
     // Render forms for additional travelers (Traveler 2, 3...)
     const travelerForms = Array.from({ length: Math.max(0, numTravelers - 1) }, (_, i) => {
@@ -315,9 +799,11 @@ const CheckoutPage: React.FC = () => {
                                         type="text"
                                         value={fullName}
                                         onChange={(e) => setFullName(e.target.value)}
-                                        className="w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition"
+                                        onBlur={checkUserExistence}
+                                        className={`w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition ${fieldErrors.fullName ? 'border-red-500 ring-1 ring-red-500' : ''}`}
                                         required
                                     />
+                                    {fieldErrors.fullName && <p className="text-xs text-red-500 mt-1">{fieldErrors.fullName}</p>}
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-text-secondary mb-2">Email Address <span className="text-red-500">*</span></label>
@@ -325,9 +811,11 @@ const CheckoutPage: React.FC = () => {
                                         type="email"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
-                                        className="w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition"
+                                        onBlur={checkUserExistence}
+                                        className={`w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition ${fieldErrors.email ? 'border-red-500 ring-1 ring-red-500' : ''}`}
                                         required
                                     />
+                                    {fieldErrors.email && <p className="text-xs text-red-500 mt-1">{fieldErrors.email}</p>}
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-text-secondary mb-2">Gender <span className="text-red-500">*</span></label>
@@ -348,36 +836,17 @@ const CheckoutPage: React.FC = () => {
                                         type="date"
                                         value={dob}
                                         onChange={(e) => setDob(e.target.value)}
-                                        className="w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition [color-scheme:dark]"
+                                        className={`w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition [color-scheme:dark] ${fieldErrors.dob ? 'border-red-500 ring-1 ring-red-500' : ''}`}
                                         required
                                     />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-text-secondary mb-2">Password <span className="text-red-500">*</span></label>
-                                    <input
-                                        type="password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        className="w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-text-secondary mb-2">Confirm Password <span className="text-red-500">*</span></label>
-                                    <input
-                                        type="password"
-                                        value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
-                                        className="w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition"
-                                        required
-                                    />
+                                    {fieldErrors.dob && <p className="text-xs text-red-500 mt-1">{fieldErrors.dob}</p>}
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-text-secondary mb-2">Country <span className="text-red-500">*</span></label>
                                     <select
                                         value={country}
                                         onChange={(e) => setCountry(e.target.value)}
-                                        className="w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition appearance-none cursor-pointer"
+                                        className={`w-full bg-surface-darker border-transparent rounded-lg px-4 py-2 text-white focus:ring-primary focus:border-primary transition appearance-none cursor-pointer ${fieldErrors.country ? 'border-red-500 ring-1 ring-red-500' : ''}`}
                                         required
                                     >
                                         <option value="">Select Country</option>
@@ -385,6 +854,7 @@ const CheckoutPage: React.FC = () => {
                                             <option key={c.code} value={c.code}>{c.name}</option>
                                         ))}
                                     </select>
+                                    {fieldErrors.country && <p className="text-xs text-red-500 mt-1">{fieldErrors.country}</p>}
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-text-secondary mb-2">Phone</label>
@@ -674,6 +1144,20 @@ const CheckoutPage: React.FC = () => {
                                         </div>
                                         <p className="text-3xl font-black text-white">${calculation.totalDue.toLocaleString()}</p>
                                     </div>
+                                    <div className="mb-4">
+                                        <label className="flex items-start gap-2 cursor-pointer group">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={agreeTerms}
+                                                onChange={(e) => setAgreeTerms(e.target.checked)}
+                                                className={`mt-1 w-4 h-4 rounded bg-surface-darker border-white/20 text-primary focus:ring-primary transition-colors ${fieldErrors.agreeTerms ? 'border-red-500 ring-1 ring-red-500' : ''}`} 
+                                            />
+                                            <span className={`text-xs ${fieldErrors.agreeTerms ? 'text-red-500' : 'text-text-secondary group-hover:text-white'} transition-colors`}>
+                                                I agree to the <a href="#" className="text-primary hover:underline font-bold" onClick={(e) => e.stopPropagation()}>Terms and Conditions</a> and <a href="#" className="text-primary hover:underline font-bold" onClick={(e) => e.stopPropagation()}>Cancellation Policy</a>.
+                                            </span>
+                                        </label>
+                                    </div>
+
                                     <button 
                                         onClick={handleBooking}
                                         disabled={loading}
@@ -688,7 +1172,6 @@ const CheckoutPage: React.FC = () => {
                                             </>
                                         )}
                                     </button>
-                                    <p className="text-center text-[10px] text-text-secondary">By clicking the button, you agree to our <a href="#" className="text-primary hover:underline">Terms and Conditions</a> and <a href="#" className="text-primary hover:underline">Cancellation Policy</a>.</p>
                                 </div>
                             </div>
                             <div className="bg-surface-dark rounded-xl border border-white/5 p-6 text-center">
@@ -712,6 +1195,150 @@ const CheckoutPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
+                
+                {/* OTP Modal */}
+                {showOtpModal && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowOtpModal(false)}></div>
+                        <div className="relative bg-surface-card w-full max-w-md rounded-2xl border border-white/10 p-8 shadow-2xl transform transition-all scale-100">
+                             <div className="flex flex-col items-center text-center">
+                                <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-6 ring-4 ring-primary/10">
+                                    <span className="material-symbols-outlined text-3xl text-primary">lock_person</span>
+                                </div>
+                                <h3 className="text-2xl font-bold text-white mb-2">Security Verification</h3>
+                                <p className="text-text-secondary mb-4">
+                                    We've sent a confirmation email to <span className="text-white font-bold">{email}</span>.
+                                </p>
+                                <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-6">
+                                    <p className="text-primary font-bold text-sm animate-pulse">
+                                        👉 Please click the "Log In" link in that email to verify.
+                                    </p>
+                                    <p className="text-xs text-text-secondary mt-1">
+                                        (You can close the new tab that opens)
+                                    </p>
+                                </div>
+                                
+                                <p className="text-xs text-text-secondary mb-2">
+                                    Or enter the code if provided:
+                                </p>
+                                
+                                <div className="flex gap-1 mb-2 justify-center">
+                                    {otp.map((data, index) => {
+                                        return (
+                                            <input
+                                                className="w-8 h-10 sm:w-10 sm:h-12 bg-surface-darker border border-white/10 rounded-lg text-center text-lg font-bold text-white focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none"
+                                                type="text"
+                                                name="otp"
+                                                maxLength={1}
+                                                key={index}
+                                                value={data}
+                                                onChange={e => handleOtpChange(e.target, index)}
+                                                onKeyDown={e => handleOtpKeyDown(e, index)}
+                                                onFocus={e => e.target.select()}
+                                                ref={el => otpInputRefs.current[index] = el}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                                {otpError && <p className="text-red-500 text-sm mt-2">{otpError}</p>}
+                                
+                                <div className="mt-8 w-full space-y-3">
+                                    <button 
+                                        onClick={handleVerifyOtp}
+                                        disabled={loading}
+                                        className="w-full py-3 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-2"
+                                    >
+                                        {loading ? (
+                                            <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                                        ) : (
+                                            "Verify & Pay"
+                                        )}
+                                    </button>
+                                    <button 
+                                        onClick={() => setShowOtpModal(false)}
+                                        className="w-full py-3 bg-transparent text-text-secondary hover:text-white font-bold text-sm transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                                
+                                <p className="mt-6 text-xs text-text-secondary">
+                                    Didn't receive the code?{' '}
+                                    <button 
+                                        onClick={handleResendOtp}
+                                        disabled={resendTimer > 0 || loading}
+                                        className={`font-bold transition-colors ${resendTimer > 0 ? 'text-text-secondary cursor-not-allowed' : 'text-primary hover:underline'}`}
+                                    >
+                                        {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend Code'}
+                                    </button>
+                                </p>
+                                <p className="mt-2 text-[10px] text-text-secondary/60">
+                                    Please check your Spam/Junk folder.
+                                </p>
+                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Error Popup */}
+                {showErrorPopup && (
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowErrorPopup(false)}></div>
+                        <div className="relative bg-surface-card w-full max-w-sm rounded-2xl border border-red-500/20 p-6 shadow-2xl">
+                             <div className="flex flex-col items-center text-center">
+                                <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center mb-4 ring-4 ring-red-500/10">
+                                    <span className="material-symbols-outlined text-2xl text-red-500">warning</span>
+                                </div>
+                                <h3 className="text-xl font-bold text-white mb-2">Identity Mismatch</h3>
+                                <p className="text-text-secondary text-sm mb-6">
+                                    The email you entered belongs to an existing account, but the name does not match our records. Please verify your details or use a different email.
+                                </p>
+                                <button 
+                                    onClick={() => setShowErrorPopup(false)}
+                                    className="w-full py-3 bg-surface-darker hover:bg-surface-dark text-white font-bold rounded-xl transition-all border border-white/10"
+                                >
+                                    Close
+                                </button>
+                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Payment Modal */}
+                {showPaymentModal && clientSecret && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-black/90 backdrop-blur-md"></div>
+                        <div className="relative bg-surface-card w-full max-w-lg rounded-2xl border border-white/10 p-6 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+                             <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-xl font-bold text-white">Complete Payment</h3>
+                                <button onClick={() => setShowPaymentModal(false)} className="text-text-secondary hover:text-white transition-colors">
+                                    <span className="material-symbols-outlined">close</span>
+                                </button>
+                             </div>
+                             
+                             <div className="mb-6 bg-primary/10 border border-primary/20 p-4 rounded-xl flex justify-between items-center">
+                                <div>
+                                    <p className="text-xs text-text-secondary uppercase font-bold">Total to Pay</p>
+                                    <p className="text-2xl font-black text-white">
+                                        ${(paymentMethod === 'partial' ? calculation.partialAmount : calculation.totalDue).toLocaleString()}
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs text-text-secondary uppercase font-bold">Payment Type</p>
+                                    <p className="text-sm font-bold text-white">{paymentMethod === 'partial' ? '30% Deposit' : 'Full Payment'}</p>
+                                </div>
+                             </div>
+
+                             <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night', variables: { colorPrimary: '#D91E46' } } }}>
+                                <CheckoutForm 
+                                    amount={paymentMethod === 'partial' ? calculation.partialAmount : calculation.totalDue} 
+                                    onSuccess={handlePaymentSuccess}
+                                    onError={(msg) => setAuthError(msg)}
+                                />
+                             </Elements>
+                        </div>
+                    </div>
+                )}
             </main>
          </>
     );

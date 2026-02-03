@@ -16,7 +16,7 @@ export const AuthService = {
   async loginWithProfiles(email: string, password: string): Promise<CustomAdminSession> {
     const normalizedEmail = email.trim().toLowerCase();
     
-    console.log('[AuthService] Login attempt', { email: normalizedEmail });
+    // console.log('[AuthService] Login attempt', { email: normalizedEmail });
     
     const { data: profile, error } = await supabase
       .from('profiles')
@@ -25,21 +25,21 @@ export const AuthService = {
       .single();
 
     if (error || !profile) {
-      console.warn('[AuthService] No matching profile found for email', {
+      /* console.warn('[AuthService] No matching profile found for email', {
         error,
         email: normalizedEmail,
         errorCode: error?.code,
         errorMessage: error?.message
-      });
+      }); */
       throw new Error('Invalid email or password.');
     }
 
-    console.log('[AuthService] Profile found', { 
+    /* console.log('[AuthService] Profile found', { 
       id: profile.id, 
       role: profile.role, 
       status: profile.status, 
       hasPassword: !!profile.password 
-    });
+    }); */
     
     if (profile.status !== 'Active') {
       throw new Error('Account is inactive. Contact administrator.');
@@ -53,20 +53,20 @@ export const AuthService = {
     try {
         const testHash = await bcrypt.hash('test', 10);
         const testCompare = await bcrypt.compare('test', testHash);
-        console.log('[AuthService] Bcrypt Self-Test', { testHash, testCompare });
+        // console.log('[AuthService] Bcrypt Self-Test', { testHash, testCompare });
     } catch (e) {
-        console.error('[AuthService] Bcrypt Self-Test FAILED', e);
+        // console.error('[AuthService] Bcrypt Self-Test FAILED', e);
     }
     
-    console.log('[AuthService] Comparing passwords', {
+    /* console.log('[AuthService] Comparing passwords', {
         inputLength: password.length,
         hashStart: profile.password.substring(0, 10),
         hashLength: profile.password.length
-    });
+    }); */
 
     const matched = await bcrypt.compare(password, profile.password);
     if (!matched) {
-      console.warn('[AuthService] Password mismatch for email');
+      // console.warn('[AuthService] Password mismatch for email');
       throw new Error('Invalid email or password.');
     }
 

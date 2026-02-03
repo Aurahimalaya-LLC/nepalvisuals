@@ -80,9 +80,10 @@ const AdminBookingsPage: React.FC = () => {
     };
 
     const filteredBookings = bookings.filter(booking => {
+        const customerName = booking.profiles?.full_name || booking.customers?.name || '';
         const matchesSearch = 
             booking.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            booking.customers?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
             booking.tours?.name.toLowerCase().includes(searchTerm.toLowerCase());
         
         const matchesStatus = statusFilter === 'All Statuses' || booking.status === statusFilter;
@@ -160,9 +161,12 @@ const AdminBookingsPage: React.FC = () => {
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center gap-3">
                                                  <div className="w-8 h-8 rounded-full bg-admin-primary/10 flex items-center justify-center text-admin-primary font-bold">
-                                                    {booking.customers?.name?.charAt(0) || 'U'}
+                                                    {(booking.profiles?.full_name || booking.customers?.name || 'U').charAt(0)}
                                                 </div>
-                                                <span className="font-semibold text-admin-text-primary">{booking.customers?.name || 'Unknown'}</span>
+                                                <div className="flex flex-col">
+                                                    <span className="font-semibold text-admin-text-primary">{booking.profiles?.full_name || booking.customers?.name || 'Unknown'}</span>
+                                                    <span className="text-xs text-admin-text-secondary">{booking.profiles?.email || booking.customers?.email || ''}</span>
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-admin-text-secondary">{booking.tours?.name || 'Deleted Tour'}</td>

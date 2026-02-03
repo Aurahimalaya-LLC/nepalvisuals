@@ -19,7 +19,8 @@ export interface BookingTraveler {
 
 export interface Booking {
   id: string;
-  customer_id: string;
+  customer_id?: string | null; // Made optional/nullable
+  user_id?: string | null;     // Added user_id
   tour_id: string;
   dates: string | null;
   total_price: number;
@@ -29,6 +30,7 @@ export interface Booking {
   updated_at: string;
   // Relations
   customers?: Customer;
+  profiles?: { full_name: string; email: string }; // Added profile relation
   tours?: { name: string };
   booking_travelers?: BookingTraveler[];
 }
@@ -40,6 +42,7 @@ export const BookingService = {
       .select(`
         *,
         customers (name, email),
+        profiles (full_name, email),
         tours (name),
         booking_travelers (*)
       `)
@@ -55,6 +58,7 @@ export const BookingService = {
       .select(`
         *,
         customers (*),
+        profiles (*),
         tours (name),
         booking_travelers (*)
       `)

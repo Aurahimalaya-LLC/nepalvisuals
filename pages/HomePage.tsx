@@ -12,6 +12,7 @@ import { RegionService } from '../lib/services/regionService';
 import { useNavigate } from 'react-router-dom';
 import { sanitizeHtml } from '../lib/utils/htmlUtils';
 import { AnalyticsService } from '../lib/services/analyticsService';
+import { supabase } from '../lib/supabaseClient';
 
 const FaqItem: React.FC<{ title: string, children: React.ReactNode }> = ({ title, children }) => (
     <details className="group bg-surface-dark rounded-2xl border border-white/5 overflow-hidden transition-all duration-300 hover:border-primary/30 open:bg-surface-dark open:border-primary/50 open:shadow-lg open:shadow-primary/5">
@@ -37,6 +38,22 @@ const HomePage: React.FC = () => {
             activitiesHeadingRef.current.textContent = 'Regions';
         }
     }, []);
+
+    // Rescue Redirect for Magic Link users who land on Home instead of Checkout
+    React.useEffect(() => {
+        const checkPendingBooking = async () => {
+            const saved = localStorage.getItem('pendingBooking');
+            if (saved) {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    console.log("Found pending booking on Home Page, redirecting to checkout...");
+                    navigate('/booking/checkout');
+                }
+            }
+        };
+        checkPendingBooking();
+    }, [navigate]);
+
     const countsByRegion = React.useMemo(() => {
         const map = new Map<string, number>();
         stats.forEach(s => {
@@ -57,6 +74,7 @@ const HomePage: React.FC = () => {
                         <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
                         <span className="text-xs font-medium text-white uppercase tracking-wider">New Season Open</span>
                     </div>
+
                     <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-black text-white tracking-tight leading-[1.1] mb-6 drop-shadow-lg">
                         Conquer the <br />
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-primary">Unseen Peaks</span>
