@@ -178,6 +178,7 @@ const CheckoutFormContent = ({
     };
 
     const validateForm = () => {
+        // console.log("Validating form...");
         const errors: Record<string, string> = {};
         if (!selectedDate) errors.selectedDate = "Please select a trip date";
         if (numTravelers < 1) errors.numTravelers = "At least 1 traveler is required";
@@ -186,7 +187,14 @@ const CheckoutFormContent = ({
         if (!dob) errors.dob = "Date of birth is required";
         if (!country) errors.country = "Please select a country";
         if (!agreeTerms) errors.agreeTerms = "You must agree to the Terms and Conditions";
+        
+        //console.log("Validation errors:", errors);
         setFieldErrors(errors);
+        
+        // if (Object.keys(errors).length > 0) {
+        //     console.warn("Form validation failed", errors);
+        // }
+
         if (errors.selectedDate) {
             setShowCalendar(true);
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -195,10 +203,12 @@ const CheckoutFormContent = ({
     };
 
     const handleBooking = async () => {
+        //console.log("handleBooking called");
         setLoading(true);
         setAuthError(null);
 
         if (!validateForm()) {
+            //console.log("Validation failed in handleBooking");
             setLoading(false);
             return;
         }
@@ -252,7 +262,7 @@ const CheckoutFormContent = ({
                         phone: phone,
                         country: country,
                         gender: gender,
-                        dob: dob,
+                        dob: dob ? new Date(dob).toISOString().split('T')[0] : null,
                         hear_about: hearAbout,
                     },
                 }
@@ -345,7 +355,7 @@ const CheckoutFormContent = ({
                 email: email,
                 phone: phone,
                 is_primary: true,
-                dob: dob,
+                dob: dob ? new Date(dob).toISOString().split('T')[0] : '',
                 gender: gender,
                 country: country,
                 dietary_requirements: dietary

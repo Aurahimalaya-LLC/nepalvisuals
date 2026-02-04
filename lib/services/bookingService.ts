@@ -74,10 +74,58 @@ export const BookingService = {
   },
 
   async createBooking(booking: Partial<Booking>, travelers: Partial<BookingTraveler>[]) {
+    // 0. Handle Customer (Find or Create)
+    let customerId = booking.customer_id;
+
+    if (!customerId) {
+        // Try to find primary traveler to use as customer
+        const primaryTraveler = travelers.find(t => t.is_primary) || travelers[0];
+        
+        if (primaryTraveler && primaryTraveler.email) {
+            try {
+                // Check if customer exists by email
+                const { data: existingCustomers } = await supabase
+                    .from('customers')
+                    .select('id')
+                    .eq('email', primaryTraveler.email)
+                    .limit(1);
+                
+                if (existingCustomers && existingCustomers.length > 0) {
+                    customerId = existingCustomers[0].id;
+                } else {
+                    // Create new customer
+                    const { data: newCustomer, error: createError } = await supabase
+                        .from('customers')
+                        .insert({
+                            name: primaryTraveler.name,
+                            email: primaryTraveler.email,
+                            phone: primaryTraveler.phone,
+                            address: primaryTraveler.country // Map country to address for now
+                        })
+                        .select('id')
+                        .single();
+                    
+                    if (!createError && newCustomer) {
+                        customerId = newCustomer.id;
+                    } else {
+                        console.warn("Failed to auto-create customer:", createError);
+                    }
+                }
+            } catch (err) {
+                console.error("Error handling customer creation:", err);
+            }
+        }
+    }
+
     // 1. Create Booking
+    const bookingToInsert = { ...booking };
+    if (customerId) {
+        bookingToInsert.customer_id = customerId;
+    }
+
     const { data: bookingData, error: bookingError } = await supabase
       .from('bookings')
-      .insert(booking)
+      .insert(bookingToInsert)
       .select()
       .single();
     
