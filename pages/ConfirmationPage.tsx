@@ -1,6 +1,7 @@
 
 import React, { useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { jsPDF } from "jspdf";
 
 const addonsList = [
     { id: 'privateRoom', name: 'Private Room Upgrade', price: 350 },
@@ -59,6 +60,175 @@ const ConfirmationPage: React.FC = () => {
     const amountPaid = displayStatus === 'Deposit Paid' 
         ? (calc.partialAmount || calc.totalDue * 0.3) 
         : calc.totalDue;
+
+    const generatePDF = (type: 'receipt' | 'invoice') => {
+        const doc = new jsPDF();
+        const lineHeight = 7;
+        let y = 20;
+        const pageHeight = doc.internal.pageSize.height;
+
+        // Helper to check page break
+        const checkPageBreak = (heightNeeded: number) => {
+            if (y + heightNeeded > pageHeight - 20) {
+                doc.addPage();
+                y = 20;
+            }
+        };
+
+        // Helper to add text and advance line
+        const addLine = (text: string, fontSize: number = 10, isBold: boolean = false, align: "left" | "center" | "right" = "left") => {
+            doc.setFontSize(fontSize);
+            doc.setFont("helvetica", isBold ? "bold" : "normal");
+            const x = align === "center" ? 105 : (align === "right" ? 190 : 20);
+            doc.text(text, x, y, { align });
+            y += lineHeight;
+        };
+        
+        // Header Background
+        doc.setFillColor(217, 30, 70); // Primary color
+        doc.rect(0, 0, 210, 40, 'F');
+        
+        // Title
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(24);
+        doc.setFont("helvetica", "bold");
+        doc.text(type === 'receipt' ? "OFFICIAL RECEIPT" : "INVOICE", 105, 25, { align: "center" });
+        
+        y = 55;
+        doc.setTextColor(0, 0, 0);
+
+        // Company Info (Left) & Document Info (Right)
+        const startY = y;
+        
+        // Left Column: Company & Customer
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Nepal Visuals", 20, y);
+        y += 6;
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text("Kathmandu, Nepal", 20, y);
+        y += 5;
+        doc.text("support@nepalvisuals.com", 20, y);
+        y += 12;
+
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text(type === 'receipt' ? "Received From:" : "Bill To:", 20, y);
+        y += 6;
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(displayName, 20, y);
+        y += 5;
+        doc.text(displayEmail, 20, y);
+
+        // Right Column: Details
+        y = startY;
+        doc.setFontSize(10);
+        const rightX = 140;
+        
+        doc.setFont("helvetica", "bold");
+        doc.text(type === 'receipt' ? "Receipt #:" : "Invoice #:", rightX, y);
+        doc.setFont("helvetica", "normal");
+        doc.text(`${displayRef}${type === 'receipt' ? '-R' : ''}`, 190, y, { align: "right" });
+        y += 6;
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Date:", rightX, y);
+        doc.setFont("helvetica", "normal");
+        doc.text(new Date().toLocaleDateString(), 190, y, { align: "right" });
+        y += 6;
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Tour:", rightX, y);
+        doc.setFont("helvetica", "normal");
+        doc.text(displayTour.substring(0, 25) + (displayTour.length > 25 ? "..." : ""), 190, y, { align: "right" });
+        y += 6;
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Travelers:", rightX, y);
+        doc.setFont("helvetica", "normal");
+        doc.text(guestCount.toString(), 190, y, { align: "right" });
+        
+        y = Math.max(y, startY + 45) + 10;
+
+        // Line Item Header
+        doc.setFillColor(240, 240, 240);
+        doc.rect(20, y - 6, 170, 8, 'F');
+        doc.setFont("helvetica", "bold");
+        doc.text("Description", 25, y);
+        doc.text("Amount (USD)", 185, y, { align: "right" });
+        y += 10;
+
+        // Items
+        const currency = (amount: number) => `$${amount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+        addLine(`Base Price x ${guestCount}`, 10, false);
+        doc.text(currency(calc.basePrice), 190, y - lineHeight, { align: "right" });
+
+        addLine("Permits & Fees", 10, false);
+        doc.text(currency(calc.permitsAndFees), 190, y - lineHeight, { align: "right" });
+
+        addonsList.forEach(addon => {
+            if (activeAddons[addon.id]) {
+                addLine(`${addon.name}`, 10, false);
+                doc.text(currency(addon.price), 190, y - lineHeight, { align: "right" });
+            }
+        });
+
+        if (calc.earlyBirdDiscount) {
+            doc.setTextColor(34, 197, 94); // Green
+            addLine("Early Bird Discount", 10, false);
+            doc.text(`-${currency(Math.abs(calc.earlyBirdDiscount))}`, 190, y - lineHeight, { align: "right" });
+            doc.setTextColor(0, 0, 0);
+        }
+
+        y += 2;
+        doc.setLineWidth(0.5);
+        doc.line(20, y, 190, y);
+        y += 8;
+
+        // Totals
+        const addTotalLine = (label: string, value: string, bold: boolean = false, isTotal: boolean = false) => {
+            doc.setFont("helvetica", bold ? "bold" : "normal");
+            doc.setFontSize(isTotal ? 12 : 10);
+            doc.text(label, 140, y);
+            doc.text(value, 190, y, { align: "right" });
+            y += isTotal ? 10 : 6;
+        };
+
+        addTotalLine("Subtotal:", currency(calc.subtotal));
+        addTotalLine("Taxes (10%):", currency(calc.taxes));
+        y += 2;
+        addTotalLine("Total Due:", currency(calc.totalDue), true, true);
+
+        if (type === 'receipt') {
+            y += 5;
+            doc.setFillColor(240, 255, 240);
+            doc.rect(135, y - 8, 60, 20, 'F');
+            doc.setTextColor(0, 100, 0);
+            y += 2; // adjust for box
+            
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(12);
+            doc.text("Amount Paid:", 140, y);
+            doc.text(currency(amountPaid), 190, y, { align: "right" });
+            y += 8;
+            
+            doc.setFontSize(10);
+            doc.text("Status:", 140, y);
+            doc.text(displayStatus, 190, y, { align: "right" });
+        }
+
+        // Footer
+        doc.setTextColor(150, 150, 150);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text("Thank you for choosing Nepal Visuals for your adventure!", 105, 280, { align: "center" });
+        doc.text("Questions? Contact support@nepalvisuals.com", 105, 285, { align: "center" });
+
+        doc.save(`${type === 'receipt' ? 'Receipt' : 'Invoice'}-${displayRef}.pdf`);
+    };
 
     return (
         <>
@@ -128,7 +298,10 @@ const ConfirmationPage: React.FC = () => {
                                 </p>
                             </div>
                             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                                <button className="w-full sm:w-auto px-8 py-3 bg-white text-background-dark font-bold rounded-xl hover:bg-gray-100 transition-colors shadow-lg shadow-white/10 flex items-center justify-center gap-2 group">
+                                <button 
+                                    onClick={() => generatePDF('receipt')}
+                                    className="w-full sm:w-auto px-8 py-3 bg-white text-background-dark font-bold rounded-xl hover:bg-gray-100 transition-colors shadow-lg shadow-white/10 flex items-center justify-center gap-2 group"
+                                >
                                     <span className="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">download</span>
                                     Download Receipt
                                 </button>
@@ -259,10 +432,13 @@ const ConfirmationPage: React.FC = () => {
                                         </div>
                                         <p className="text-3xl font-black text-white">${amountPaid?.toLocaleString()}</p>
                                     </div>
-                                    <button className="w-full py-4 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-2 group mb-4">
-                                        Download Invoice
-                                        <span className="material-symbols-outlined group-hover:translate-y-1 transition-transform">download</span>
-                                    </button>
+                                    <button 
+                                    onClick={() => generatePDF('invoice')}
+                                    className="w-full py-4 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-2 group mb-4"
+                                >
+                                    Download Invoice
+                                    <span className="material-symbols-outlined group-hover:translate-y-1 transition-transform">download</span>
+                                </button>
                                 </div>
                             </div>
                         </div>

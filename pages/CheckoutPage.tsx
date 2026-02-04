@@ -62,6 +62,7 @@ const CheckoutFormContent = ({
     const [agreeTerms, setAgreeTerms] = useState(false);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [isExistingUser, setIsExistingUser] = useState(false);
+    const [generalError, setGeneralError] = useState<string | null>(null);
 
     // OTP State
     const [showOtpModal, setShowOtpModal] = useState(false);
@@ -180,26 +181,62 @@ const CheckoutFormContent = ({
     const validateForm = () => {
         // console.log("Validating form...");
         const errors: Record<string, string> = {};
+        const nameRegex = /^[a-zA-Z\s]+$/;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
         if (!selectedDate) errors.selectedDate = "Please select a trip date";
         if (numTravelers < 1) errors.numTravelers = "At least 1 traveler is required";
-        if (!fullName.trim() || fullName.length < 2) errors.fullName = "Full name must be at least 2 characters";
+        
+        // Lead Traveler Name Validation
+        if (!fullName.trim()) {
+            errors.fullName = "Full name is required";
+        } else if (fullName.length < 2) {
+            errors.fullName = "Full name must be at least 2 characters";
+        } else if (!nameRegex.test(fullName)) {
+            errors.fullName = "Name can only contain letters and spaces (no numbers or symbols)";
+        }
+
         if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) errors.email = "Please enter a valid email address";
-        if (!dob) errors.dob = "Date of birth is required";
+        
+        // Lead Traveler DOB Validation
+        if (!dob) {
+            errors.dob = "Date of birth is required";
+        } else {
+            const dobDate = new Date(dob);
+            if (dobDate > today) {
+                errors.dob = "Date of birth cannot be in the future";
+            }
+        }
+
         if (!country) errors.country = "Please select a country";
         if (!agreeTerms) errors.agreeTerms = "You must agree to the Terms and Conditions";
         
+        // Validate Additional Travelers
+        let additionalTravelerError = false;
+        additionalTravelers.forEach((t) => {
+            if (!t.fullName.trim() || !nameRegex.test(t.fullName)) additionalTravelerError = true;
+            if (!t.dob || new Date(t.dob) > today) additionalTravelerError = true;
+            if (!t.country) additionalTravelerError = true;
+        });
+
         //console.log("Validation errors:", errors);
         setFieldErrors(errors);
         
-        // if (Object.keys(errors).length > 0) {
-        //     console.warn("Form validation failed", errors);
-        // }
+        if (Object.keys(errors).length > 0 || additionalTravelerError) {
+             setGeneralError("Please fix the errors highlighted below before proceeding.");
+             if (additionalTravelerError) {
+                 setGeneralError("Please check details for all additional travelers (Name must be letters only, DOB cannot be in future).");
+             }
+             window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+             setGeneralError(null);
+        }
 
         if (errors.selectedDate) {
             setShowCalendar(true);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
-        return Object.keys(errors).length === 0;
+        return Object.keys(errors).length === 0 && !additionalTravelerError;
     };
 
     const handleBooking = async () => {
@@ -448,6 +485,29 @@ const CheckoutFormContent = ({
         }
     };
 
+    const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+        e.preventDefault();
+        const paste = e.clipboardData.getData('text');
+        // Filter only numbers
+        const numbers = paste.replace(/\D/g, '').split('').slice(0, 8);
+        
+        if (numbers.length > 0) {
+            const newOtp = [...otp];
+            numbers.forEach((num, index) => {
+                 newOtp[index] = num;
+            });
+            setOtp(newOtp);
+            
+            // Focus the input after the last pasted character (or the last one if full)
+            const nextFocusIndex = Math.min(numbers.length, 7);
+            // Use setTimeout to ensure render cycle completes if needed, but usually direct focus works in React 18+
+            // checking if the ref exists
+            if (otpInputRefs.current[nextFocusIndex]) {
+                 otpInputRefs.current[nextFocusIndex]?.focus();
+            }
+        }
+    };
+
     const handleOtpChange = (element: HTMLInputElement, index: number) => {
         if (isNaN(Number(element.value))) return false;
         setOtp([...otp.map((d, idx) => (idx === index ? element.value : d))]);
@@ -556,6 +616,24 @@ const CheckoutFormContent = ({
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
                     <div className="lg:col-span-2 space-y-6">
                         {authError && <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-xl text-sm">{authError}</div>}
+                        
+                        {/* Validation Error Summary */}
+                        {(generalError || Object.keys(fieldErrors).length > 0) && (
+                            <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl animate-pulse">
+                                <div className="flex items-start gap-3">
+                                    <span className="material-symbols-outlined text-red-500 mt-0.5">error</span>
+                                    <div>
+                                        <h4 className="font-bold text-white text-sm mb-1">Couldn't proceed ahead</h4>
+                                        <p className="text-red-400 text-xs mb-2">{generalError || "There are issues with your submission."}</p>
+                                        <ul className="list-disc list-inside text-xs text-red-400/80 space-y-1">
+                                            {Object.entries(fieldErrors).map(([key, msg]) => (
+                                                <li key={key}>{msg}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Lead Traveler */}
                         <div className="bg-surface-dark border border-white/5 rounded-xl p-6">
@@ -692,7 +770,7 @@ const CheckoutFormContent = ({
                              <div className="flex flex-col items-center text-center">
                                 <h3 className="text-2xl font-bold text-white mb-2">Security Verification</h3>
                                 <p className="text-text-secondary mb-4">Code sent to <span className="text-white font-bold">{email}</span>.</p>
-                                <div className="flex gap-1 mb-2 justify-center">{otp.map((data, index) => <input className="w-8 h-10 bg-surface-darker border border-white/10 rounded-lg text-center text-lg font-bold text-white focus:border-primary" type="text" maxLength={1} key={index} value={data} onChange={e => handleOtpChange(e.target, index)} onKeyDown={e => handleOtpKeyDown(e, index)} ref={el => otpInputRefs.current[index] = el} />)}</div>
+                                <div className="flex gap-1 mb-2 justify-center">{otp.map((data, index) => <input className="w-8 h-10 bg-surface-darker border border-white/10 rounded-lg text-center text-lg font-bold text-white focus:border-primary" type="text" maxLength={1} key={index} value={data} onChange={e => handleOtpChange(e.target, index)} onKeyDown={e => handleOtpKeyDown(e, index)} onPaste={handleOtpPaste} ref={el => otpInputRefs.current[index] = el} />)}</div>
                                 {otpError && <p className="text-red-500 text-sm mt-2">{otpError}</p>}
                                 <div className="mt-8 w-full space-y-3">
                                     <button onClick={handleVerifyOtp} disabled={loading} className="w-full py-3 bg-primary text-white font-bold rounded-xl">{loading ? "Verifying..." : "Verify & Pay"}</button>
