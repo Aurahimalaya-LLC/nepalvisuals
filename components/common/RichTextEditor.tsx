@@ -13,6 +13,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { TextStyle } from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
+import Youtube from '@tiptap/extension-youtube';
 
 interface RichTextEditorProps {
     content: string;
@@ -70,10 +71,27 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
     }
 
     const addImage = useCallback(() => {
-        const url = window.prompt('Enter image URL');
-        if (url) {
-            editor.chain().focus().setImage({ src: url }).run();
-        }
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = async () => {
+            if (input.files?.length) {
+                const file = input.files[0];
+                const alt = window.prompt('Enter image alt text');
+                
+                // Convert to Data URL for local preview
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    editor.chain().focus().setImage({ 
+                        src: e.target?.result as string, 
+                        alt: alt || '',
+                        title: alt || '' 
+                    }).run();
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+        input.click();
     }, [editor]);
 
     const setLink = useCallback(() => {
@@ -93,6 +111,14 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
 
         // update
         editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+    }, [editor]);
+
+    const addYoutube = useCallback(() => {
+        const url = window.prompt('Enter YouTube URL');
+
+        if (url) {
+            editor.commands.setYoutubeVideo({ src: url });
+        }
     }, [editor]);
 
     return (
@@ -165,10 +191,40 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
                     title="Heading 3"
                 />
                 <MenuButton
+                    onClick={() => editor.chain().focus().toggleHeading({ level: 4 }).run()}
+                    isActive={editor.isActive('heading', { level: 4 })}
+                    icon="format_h4"
+                    title="Heading 4"
+                />
+                <MenuButton
+                    onClick={() => editor.chain().focus().toggleHeading({ level: 5 }).run()}
+                    isActive={editor.isActive('heading', { level: 5 })}
+                    icon="format_h5"
+                    title="Heading 5"
+                />
+                <MenuButton
+                    onClick={() => editor.chain().focus().toggleHeading({ level: 6 }).run()}
+                    isActive={editor.isActive('heading', { level: 6 })}
+                    icon="format_h6"
+                    title="Heading 6"
+                />
+                <MenuButton
                     onClick={() => editor.chain().focus().setParagraph().run()}
                     isActive={editor.isActive('paragraph')}
                     icon="format_paragraph"
                     title="Paragraph"
+                />
+                <MenuButton
+                    onClick={() => editor.chain().focus().toggleBlockquote().run()}
+                    isActive={editor.isActive('blockquote')}
+                    icon="format_quote"
+                    title="Quote"
+                />
+                <MenuButton
+                    onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+                    isActive={editor.isActive('codeBlock')}
+                    icon="code"
+                    title="Code Block"
                 />
             </div>
 
@@ -236,6 +292,11 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
                     title="Insert Image"
                 />
                 <MenuButton
+                    onClick={addYoutube}
+                    icon="smart_display"
+                    title="Insert YouTube Video"
+                />
+                <MenuButton
                     onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
                     icon="table_chart"
                     title="Insert Table"
@@ -282,6 +343,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                 allowBase64: true,
                 HTMLAttributes: {
                     class: 'rounded-lg max-w-full h-auto',
+                    loading: 'lazy',
                 },
             }),
             TextAlign.configure({
@@ -306,6 +368,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
             }),
             Placeholder.configure({
                 placeholder: placeholder || 'Write something...',
+            }),
+            Youtube.configure({
+                controls: false,
             }),
         ],
         content,

@@ -159,6 +159,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                     <NavLink to="/" icon="dashboard" label="Dashboard" exact={true} isCollapsed={isCollapsed} />
                     <NavLink to="/tours" icon="map" label="Tours" isCollapsed={isCollapsed} />
                     <NavLink to="/regions" icon="public" label="Regions" isCollapsed={isCollapsed} />
+                    <NavLink to="/blog" icon="article" label="Blog" isCollapsed={isCollapsed} />
                     <NavLink to="/media" icon="perm_media" label="Media" isCollapsed={isCollapsed} />
                     <NavLink to="/bookings" icon="confirmation_number" label="Bookings" isCollapsed={isCollapsed} />
                     <NavLink to="/customers" icon="badge" label="Customers" isCollapsed={isCollapsed} />

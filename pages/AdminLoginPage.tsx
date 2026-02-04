@@ -48,28 +48,28 @@ const AdminLoginPage: React.FC = () => {
 
     const from = (location.state as any)?.from?.pathname || '/admin/tours';
 
-    const handleGoogleLogin = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const { error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: `${window.location.origin}/admin/tours`, // Redirect back to admin panel
-                    queryParams: {
-                        access_type: 'offline',
-                        prompt: 'consent',
-                    },
-                },
-            });
-            if (error) throw error;
-        } catch (err: any) {
-            console.error('Google login error:', err);
-            setError('Failed to initiate Google login. Please try again.');
-        } finally {
-            setLoading(false);
-        }
-    };
+    // const handleGoogleLogin = async () => {
+    //     setLoading(true);
+    //     setError(null);
+    //     try {
+    //         const { error } = await supabase.auth.signInWithOAuth({
+    //             provider: 'google',
+    //             options: {
+    //                 redirectTo: `${window.location.origin}/admin/tours`, // Redirect back to admin panel
+    //                 queryParams: {
+    //                     access_type: 'offline',
+    //                     prompt: 'consent',
+    //                 },
+    //             },
+    //         });
+    //         if (error) throw error;
+    //     } catch (err: any) {
+    //         console.error('Google login error:', err);
+    //         setError('Failed to initiate Google login. Please try again.');
+    //     } finally {
+    //         setLoading(false);
+    //     }
+    // };
 
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -103,7 +103,7 @@ const AdminLoginPage: React.FC = () => {
                     </div>
                 )}
 
-                {
+                {/* {
                 <div className="mb-6">
                     <button
                         type="button"
@@ -124,7 +124,7 @@ const AdminLoginPage: React.FC = () => {
                         </div>
                     </div>
                 </div> 
-                }
+                } */}
 
                 <form onSubmit={handleLogin} className="space-y-6">
                     <div>

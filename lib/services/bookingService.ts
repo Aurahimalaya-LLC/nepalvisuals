@@ -41,19 +41,28 @@ export interface Booking {
 
 export const BookingService = {
   async getAllBookings() {
-    const { data, error } = await supabase
-      .from('bookings')
-      .select(`
-        *,
-        customers (name, email),
-        profiles (full_name, email),
-        tours (name),
-        booking_travelers (*)
-      `)
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data as Booking[];
+    // If there is a Supabase auth session, use RLS-aware direct query.
+    // Otherwise (custom admin session), invoke secure Edge Function with service role.
+    const { data: sessionResp } = await supabase.auth.getSession();
+    if (sessionResp?.session) {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select(`
+          *,
+          customers (name, email),
+          profiles (full_name, email),
+          tours (name),
+          booking_travelers (*)
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data as Booking[];
+    } else {
+      const { data, error } = await supabase.functions.invoke('admin-get-bookings', { body: {} });
+      if (error) throw error;
+      return (data?.data || []) as Booking[];
+    }
   },
 
   async getBookingById(id: string) {

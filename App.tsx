@@ -25,6 +25,8 @@ import AdminBookingEditorPage from './pages/AdminBookingEditorPage';
 import AdminCustomersPage from './pages/AdminCustomersPage';
 import AdminCustomerViewPage from './pages/AdminCustomerViewPage';
 import AdminCustomerEditorPage from './pages/AdminCustomerEditorPage';
+import AdminBlogCreatePage from './pages/AdminBlogCreatePage';
+import AdminBlogListPage from './pages/AdminBlogListPage';
 import AdminRegionsPage from './pages/AdminRegionsPage';
 import AdminRegionEditorPage from './pages/AdminRegionEditorPage';
 import AdminMediaPage from './pages/AdminMediaPage';
@@ -72,6 +74,9 @@ const AdminRoutes = () => (
                 <Route path="/customer/view/:customerId" element={<AdminCustomerViewPage />} />
                 <Route path="/customer/new" element={<AdminCustomerEditorPage />} />
                 <Route path="/customer/edit/:customerId" element={<AdminCustomerEditorPage />} />
+                <Route path="/blog" element={<AdminBlogListPage />} />
+                <Route path="/blog/new" element={<AdminBlogCreatePage />} />
+                <Route path="/bookings" element={<AdminBookingsPage />} />
                 <Route path="/regions" element={<AdminRegionsPage />} />
                 <Route path="/region/new" element={<AdminRegionEditorPage />} />
                 <Route path="/region/edit/:regionId" element={<AdminRegionEditorPage />} />

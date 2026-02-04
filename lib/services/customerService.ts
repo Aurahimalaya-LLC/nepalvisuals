@@ -10,25 +10,48 @@ export interface ExtendedCustomer extends Customer {
 
 export const CustomerService = {
   async getAllCustomers() {
-    // We want to fetch customers and ideally aggregate booking stats.
-    // Supabase JS doesn't do complex aggregations in one simple select easily without views or RPC.
-    // For MVP, we'll fetch customers and we can fetch booking stats separately or client-side join if dataset is small.
-    // Or we use a view. Let's stick to simple fetch and maybe a separate fetch for counts if needed.
-    
-    const { data, error } = await supabase
-      .from('customers')
-      .select('*, bookings(id, total_price)')
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
+    const { data: sessionResp } = await supabase.auth.getSession();
+    if (sessionResp?.session) {
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*, bookings(id, total_price)')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data as any[]).map((c: any) => ({
+        ...c,
+        bookings_count: c.bookings?.length || 0,
+        total_spend: c.bookings?.reduce((sum: number, b: any) => sum + (b.total_price || 0), 0) || 0,
+        joined_date: c.created_at
+      })) as ExtendedCustomer[];
+    } else {
+      const { data: customers, error: customersError } = await supabase
+        .from('customers')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (customersError) throw customersError;
 
-    // Transform data to include virtual fields
-    return data.map((c: any) => ({
-      ...c,
-      bookings_count: c.bookings?.length || 0,
-      total_spend: c.bookings?.reduce((sum: number, b: any) => sum + (b.total_price || 0), 0) || 0,
-      joined_date: c.created_at
-    })) as ExtendedCustomer[];
+      const { data: fnResp, error: fnError } = await supabase.functions.invoke('admin-get-bookings', { body: {} });
+      if (fnError) throw fnError;
+      const bookings = ((fnResp as any)?.data || []) as Array<{ customer_id?: string; total_price?: number }>;
+
+      const stats = new Map<string, { count: number; sum: number }>();
+      for (const b of bookings) {
+        const cid = b.customer_id;
+        if (!cid) continue;
+        const current = stats.get(cid) || { count: 0, sum: 0 };
+        stats.set(cid, { count: current.count + 1, sum: current.sum + (b.total_price || 0) });
+      }
+
+      return (customers as any[]).map((c: any) => {
+        const s = stats.get(c.id) || { count: 0, sum: 0 };
+        return {
+          ...c,
+          bookings_count: s.count,
+          total_spend: s.sum,
+          joined_date: c.created_at
+        };
+      }) as ExtendedCustomer[];
+    }
   },
 
   async getCustomerById(id: string) {
