@@ -50,23 +50,36 @@ const RequireAuth: React.FC<RequireAuthProps> = ({ children }) => {
 
             // Enforce RBAC: Check if user has Admin or Super Admin role
             try {
+                console.log('[RequireAuth] Checking profile for user:', session.user.id, session.user.email);
+                
                 const { data: profile, error } = await supabase
                     .from('profiles')
-                    .select('role')
+                    .select('role, email')
                     .eq('id', session.user.id)
                     .single();
 
-                if (error || !profile || (profile.role !== 'Admin' && profile.role !== 'Super Admin')) {
-                    console.warn('Access denied: User is not an admin', profile);
-                    setIsAuthenticated(false);
-                    // Sign out the user so they can try a different account
-                    await supabase.auth.signOut();
+                if (error) {
+                    console.error('[RequireAuth] Error fetching profile:', error);
+                    await handleAccessDenied();
+                    return;
+                }
+
+                if (!profile) {
+                    console.warn('[RequireAuth] No profile found for user');
+                    await handleAccessDenied();
+                    return;
+                }
+
+                console.log('[RequireAuth] User profile found:', profile);
+
+                if (profile.role !== 'Admin' && profile.role !== 'Super Admin') {
+                    console.warn(`[RequireAuth] Access denied: Role '${profile.role}' is not sufficient.`);
+                    await handleAccessDenied();
                 } else {
+                    console.log('[RequireAuth] Access granted for role:', profile.role);
                     setIsAuthenticated(true);
                     
-                    // Log successful admin access (debounced or session-based logging could be better, 
-                    // but for now we log unique sessions if possible or just log on access grant)
-                    // To prevent spamming logs on every page load/refresh, we could check sessionStorage
+                    // Log successful admin access
                     const hasLoggedSession = sessionStorage.getItem('admin_session_logged');
                     if (!hasLoggedSession) {
                         AdminLogger.log({
@@ -80,19 +93,17 @@ const RequireAuth: React.FC<RequireAuthProps> = ({ children }) => {
                     }
                 }
             } catch (err) {
-                console.error('Error checking admin role:', err);
+                console.error('[RequireAuth] Unexpected error checking admin role:', err);
                 setIsAuthenticated(false);
             }
+        };
 
-            const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-                // Re-run check on auth change (handled by state reset usually, but let's be safe)
-                if (!session) {
-                    setIsAuthenticated(false);
-                }
-                // Note: ideally we'd re-check role here too if session changed user
-            });
-
-            return () => subscription.unsubscribe();
+        const handleAccessDenied = async () => {
+            console.log('[RequireAuth] Signing out due to access denial');
+            setIsAuthenticated(false);
+            await supabase.auth.signOut();
+            // Clear any custom session as well
+            sessionStorage.removeItem('custom_admin_session');
         };
 
         checkAuth();
