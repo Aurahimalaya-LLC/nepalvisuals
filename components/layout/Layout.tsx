@@ -17,21 +17,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     const isTripDetailsPage = location.pathname.startsWith('/trip/') || location.pathname.startsWith('/trek/');
     const isAdminPage = location.pathname.startsWith('/admin');
 
-    // Global Auth Listener for Magic Link Redirects
-    React.useEffect(() => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (event === 'SIGNED_IN' && session) {
-                // Check if we have a pending booking and we are NOT on the checkout page
-                const pendingBooking = localStorage.getItem('pendingBooking');
-                if (pendingBooking && location.pathname !== '/booking/checkout') {
-                    console.log("Detected pending booking after login, redirecting to checkout...");
-                    navigate('/booking/checkout');
-                }
-            }
-        });
 
-        return () => subscription.unsubscribe();
-    }, [location.pathname, navigate]);
 
     const childrenWithProps = React.Children.map(children, child => {
         if (React.isValidElement(child) && isTripDetailsPage) {

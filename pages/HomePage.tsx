@@ -39,20 +39,7 @@ const HomePage: React.FC = () => {
         }
     }, []);
 
-    // Rescue Redirect for Magic Link users who land on Home instead of Checkout
-    React.useEffect(() => {
-        const checkPendingBooking = async () => {
-            const saved = localStorage.getItem('pendingBooking');
-            if (saved) {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session) {
-                    console.log("Found pending booking on Home Page, redirecting to checkout...");
-                    navigate('/booking/checkout');
-                }
-            }
-        };
-        checkPendingBooking();
-    }, [navigate]);
+
 
     const countsByRegion = React.useMemo(() => {
         const map = new Map<string, number>();

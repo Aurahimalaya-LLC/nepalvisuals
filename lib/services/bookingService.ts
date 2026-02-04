@@ -15,6 +15,10 @@ export interface BookingTraveler {
   email: string | null;
   phone: string | null;
   is_primary: boolean;
+  dob?: string | null;
+  gender?: string | null;
+  country?: string | null;
+  dietary_requirements?: string | null;
 }
 
 export interface Booking {
