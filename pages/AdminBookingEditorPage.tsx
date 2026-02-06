@@ -88,12 +88,12 @@ const AdminBookingEditorPage: React.FC = () => {
         const loadData = async () => {
             setLoading(true);
             try {
-                const [customersData, toursData] = await Promise.all([
+                const [customersData, toursResponse] = await Promise.all([
                     BookingService.getAllCustomers(),
                     TourService.getAllTours()
                 ]);
                 setCustomers(customersData);
-                setTours(toursData);
+                setTours(toursResponse.data);
 
                 if (isEditing && bookingId) {
                     const booking = await BookingService.getBookingById(bookingId);

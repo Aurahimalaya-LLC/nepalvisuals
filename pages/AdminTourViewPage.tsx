@@ -9,7 +9,7 @@ import TourViewHeader from '../components/tour/TourViewHeader';
 import TourDetailsPanel from '../components/tour/TourDetailsPanel';
 import TourImageGallery from '../components/tour/TourImageGallery';
 import TourItineraryTimeline from '../components/tour/TourItineraryTimeline';
-import TourPricingCard from '../components/tour/TourPricingCard';
+import AdminTourPricingPanel from '../components/tour/AdminTourPricingPanel';
 import TourHighlightsSection from '../components/tour/TourHighlightsSection';
 import TourReviewsSection from '../components/tour/TourReviewsSection';
 import { mapTourLoadError } from '../lib/utils/errorUtils';
@@ -478,7 +478,7 @@ const AdminTourViewPage: React.FC = () => {
               )}
 
               {activeSection === 'pricing' && (
-                <TourPricingCard tour={tour} onPriceUpdate={handlePriceUpdate} />
+                <AdminTourPricingPanel tour={tour} onPriceUpdate={handlePriceUpdate} />
               )}
 
               {activeSection === 'reviews' && (
