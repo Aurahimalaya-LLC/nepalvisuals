@@ -178,6 +178,7 @@ const AdminBookingsPage: React.FC = () => {
                                         <td className="px-6 py-4 whitespace-nowrap"><PaymentStatusBadge status={booking.payment_status} /></td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center gap-1">
+                                                <Link to={`/admin/booking/view/${booking.id}`} className="p-2 text-admin-text-secondary hover:text-admin-primary rounded-md"><span className="material-symbols-outlined text-lg">visibility</span></Link>
                                                 <Link to={`/admin/booking/edit/${booking.id}`} className="p-2 text-admin-text-secondary hover:text-admin-primary rounded-md"><span className="material-symbols-outlined text-lg">edit</span></Link>
                                                 <button onClick={() => openDeleteModal(booking)} className="p-2 text-admin-text-secondary hover:text-red-600 rounded-md"><span className="material-symbols-outlined text-lg">delete</span></button>
                                             </div>

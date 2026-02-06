@@ -1,6 +1,7 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { BookingService, Booking, Customer } from '../lib/services/bookingService';
 
 const StatCard: React.FC<{ title: string; value: string; icon: string; change?: string; changeType?: 'increase' | 'decrease' }> = ({ title, value, icon, change, changeType }) => (
     <div className="bg-admin-surface p-6 rounded-xl border border-admin-border shadow-sm">
@@ -21,23 +22,69 @@ const StatCard: React.FC<{ title: string; value: string; icon: string; change?: 
     </div>
 );
 
-const mockRecentBookings = [
-    { id: 'B-67890', customer: { name: 'Alex Johnson', avatar: 'https://randomuser.me/api/portraits/men/32.jpg' }, tour: 'European Escape', total: 2450, status: 'Confirmed' },
-    { id: 'B-67891', customer: { name: 'Samantha Lee', avatar: 'https://randomuser.me/api/portraits/women/44.jpg' }, tour: 'Alpine Adventure', total: 1890, status: 'Pending' },
-    { id: 'B-67892', customer: { name: 'Ben Carter', avatar: 'https://randomuser.me/api/portraits/men/86.jpg' }, tour: 'Taste of Tuscany', total: 3100, status: 'Confirmed' },
-];
-
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
     const styles: { [key: string]: string } = {
         'Confirmed': 'bg-status-published-bg text-status-published',
         'Pending': 'bg-status-draft-bg text-status-draft',
         'Cancelled': 'bg-red-100 text-red-800',
     };
-    return <span className={`text-xs font-medium px-2 py-1 rounded-full ${styles[status]}`}>{status}</span>;
+    return <span className={`text-xs font-medium px-2 py-1 rounded-full ${styles[status] || 'bg-gray-100 text-gray-800'}`}>{status}</span>;
 };
 
 
 const AdminPage: React.FC = () => {
+    const [stats, setStats] = useState({
+        totalRevenue: 0,
+        totalBookings: 0,
+        totalCustomers: 0,
+        pendingTasks: 0
+    });
+    const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchDashboardData = async () => {
+            try {
+                const [bookingsData, customersData] = await Promise.all([
+                    BookingService.getAllBookings(),
+                    BookingService.getAllCustomers()
+                ]);
+
+                // Calculate Stats
+                const totalRevenue = bookingsData
+                    .filter(b => b.status === 'Confirmed')
+                    .reduce((sum, b) => sum + (b.total_price || 0), 0);
+                
+                const pendingTasks = bookingsData.filter(b => b.status === 'Pending').length;
+
+                setStats({
+                    totalRevenue,
+                    totalBookings: bookingsData.length,
+                    totalCustomers: customersData.length,
+                    pendingTasks
+                });
+
+                // Set Recent Bookings (already ordered by created_at desc from service)
+                setRecentBookings(bookingsData.slice(0, 5));
+
+            } catch (error) {
+                console.error("Failed to fetch dashboard data:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchDashboardData();
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="p-4 sm:p-6 lg:p-8 flex justify-center items-center h-full min-h-[400px]">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-admin-primary"></div>
+            </div>
+        );
+    }
+
     return (
         <div className="p-4 sm:p-6 lg:p-8">
             <div className="mb-8">
@@ -46,10 +93,10 @@ const AdminPage: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <StatCard title="Total Revenue" value="$42,389" icon="monitoring" change="+12.5%" changeType="increase" />
-                <StatCard title="Total Bookings" value="182" icon="confirmation_number" change="+8.1%" changeType="increase" />
-                <StatCard title="New Customers" value="35" icon="group_add" change="-2.4%" changeType="decrease" />
-                <StatCard title="Pending Tasks" value="8" icon="pending_actions" />
+                <StatCard title="Total Revenue" value={`$${stats.totalRevenue.toLocaleString()}`} icon="monitoring" />
+                <StatCard title="Total Bookings" value={stats.totalBookings.toString()} icon="confirmation_number" />
+                <StatCard title="Total Customers" value={stats.totalCustomers.toString()} icon="group_add" />
+                <StatCard title="Pending Tasks" value={stats.pendingTasks.toString()} icon="pending_actions" />
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
@@ -73,22 +120,34 @@ const AdminPage: React.FC = () => {
                                 </tr>
                             </thead>
                              <tbody className="divide-y divide-admin-border">
-                                {mockRecentBookings.map(booking => (
-                                    <tr key={booking.id}>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <img src={booking.customer.avatar} alt={booking.customer.name} className="w-8 h-8 rounded-full object-cover" />
-                                                <span className="font-semibold text-admin-text-primary">{booking.customer.name}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-admin-text-secondary">{booking.tour}</td>
-                                        <td className="px-6 py-4 font-semibold">${booking.total.toLocaleString()}</td>
-                                        <td className="px-6 py-4"><StatusBadge status={booking.status} /></td>
-                                        <td className="px-6 py-4">
-                                            <Link to={`/admin/booking/view/${booking.id}`} className="p-2 text-admin-text-secondary hover:text-admin-primary rounded-md"><span className="material-symbols-outlined text-lg">visibility</span></Link>
+                                {recentBookings.length > 0 ? (
+                                    recentBookings.map(booking => (
+                                        <tr key={booking.id}>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <img 
+                                                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(booking.customers?.name || 'Guest')}&background=random`} 
+                                                        alt={booking.customers?.name || 'Guest'} 
+                                                        className="w-8 h-8 rounded-full object-cover" 
+                                                    />
+                                                    <span className="font-semibold text-admin-text-primary">{booking.customers?.name || 'Guest User'}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-admin-text-secondary">{booking.tours?.name || 'Unknown Tour'}</td>
+                                            <td className="px-6 py-4 font-semibold">${(booking.total_price || 0).toLocaleString()}</td>
+                                            <td className="px-6 py-4"><StatusBadge status={booking.status} /></td>
+                                            <td className="px-6 py-4">
+                                                <Link to={`/admin/booking/view/${booking.id}`} className="p-2 text-admin-text-secondary hover:text-admin-primary rounded-md"><span className="material-symbols-outlined text-lg">visibility</span></Link>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-8 text-center text-admin-text-secondary">
+                                            No bookings found.
                                         </td>
                                     </tr>
-                                ))}
+                                )}
                             </tbody>
                         </table>
                     </div>
