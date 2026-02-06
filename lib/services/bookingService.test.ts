@@ -13,12 +13,20 @@ const mockEq = vi.fn();
 vi.mock('../supabaseClient', () => ({
   supabase: {
     from: vi.fn(),
+    auth: {
+      getSession: vi.fn(),
+    },
+    functions: {
+      invoke: vi.fn(),
+    }
   },
 }));
 
 describe('BookingService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({ data: { session: { user: { id: 'test' } } } } as any);
 
     mockSelect.mockReturnValue({
         order: mockOrder,
@@ -78,7 +86,7 @@ describe('BookingService', () => {
     const result = await BookingService.createBooking(newBooking as any, travelers as any);
     
     expect(supabase.from).toHaveBeenCalledWith('bookings');
-    expect(mockInsert).toHaveBeenCalledWith(newBooking);
+    expect(mockInsert).toHaveBeenCalledWith({ ...newBooking, guest_count: 1 });
     
     // Check traveler insert
     expect(supabase.from).toHaveBeenCalledWith('booking_travelers');

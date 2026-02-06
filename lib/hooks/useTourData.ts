@@ -35,6 +35,15 @@ export const useTourData = ({
   const [isRefetching, setIsRefetching] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const subscriptionRef = useRef<any>(null);
+  
+  // Use refs for callbacks to prevent infinite loops when inline functions are passed
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+    onErrorRef.current = onError;
+  }, [onSuccess, onError]);
 
   const fetchTour = useCallback(async () => {
     if (!enabled || !id) return;
@@ -55,7 +64,7 @@ export const useTourData = ({
             : await TourService.getTourById(id);
             
           setTour(data);
-          if (onSuccess) onSuccess(data);
+          if (onSuccessRef.current) onSuccessRef.current(data);
           lastError = null;
           break;
         } catch (err: any) {
@@ -73,14 +82,14 @@ export const useTourData = ({
       const errorMessage = err.message || 'Failed to fetch tour data';
       setError(errorMessage);
       
-      if (onError) {
-        onError(err);
+      if (onErrorRef.current) {
+        onErrorRef.current(err);
       }
     } finally {
       setLoading(false);
       setIsRefetching(false);
     }
-  }, [id, enabled, onSuccess, onError]);
+  }, [id, enabled, isSlug]);
 
   const refetch = useCallback(async () => {
     setIsRefetching(true);
@@ -94,20 +103,20 @@ export const useTourData = ({
       const updatedTour = await TourService.updateTour(tour.id, updates);
       setTour(updatedTour);
       
-      if (onSuccess) {
-        onSuccess(updatedTour);
+      if (onSuccessRef.current) {
+        onSuccessRef.current(updatedTour);
       }
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to update tour';
       setError(errorMessage);
       
-      if (onError) {
-        onError(err);
+      if (onErrorRef.current) {
+        onErrorRef.current(err);
       }
       
       throw err;
     }
-  }, [tour, onSuccess, onError]);
+  }, [tour]);
 
   const deleteTour = useCallback(async () => {
     if (!tour) return;
@@ -119,13 +128,13 @@ export const useTourData = ({
       const errorMessage = err.message || 'Failed to delete tour';
       setError(errorMessage);
       
-      if (onError) {
-        onError(err);
+      if (onErrorRef.current) {
+        onErrorRef.current(err);
       }
       
       throw err;
     }
-  }, [tour, onError]);
+  }, [tour]);
 
   // Set up real-time subscription
   useEffect(() => {

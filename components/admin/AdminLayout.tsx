@@ -58,10 +58,16 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     // Settings State
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
     const [siteTitle, setSiteTitle] = useState('Tour Operator');
+    const [userRole, setUserRole] = useState<string>('Admin');
 
     useEffect(() => {
         const fetchSettings = async () => {
             try {
+                const session = AuthService.getCustomSession();
+                if (session) {
+                    setUserRole(session.role);
+                }
+
                 const settings = await SettingsService.getAllSettings();
                 if (settings.branding?.logo_url) {
                     setLogoUrl(settings.branding.logo_url);
@@ -157,44 +163,55 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 
                 <nav id="sidebar-nav" className="flex flex-col gap-1 flex-grow px-2 overflow-y-auto overflow-x-hidden">
                     <NavLink to="/" icon="dashboard" label="Dashboard" exact={true} isCollapsed={isCollapsed} />
-                    <NavLink to="/tours" icon="map" label="Tours" isCollapsed={isCollapsed} />
-                    <NavLink to="/regions" icon="public" label="Regions" isCollapsed={isCollapsed} />
+                    
+                    {['Admin', 'Super Admin'].includes(userRole) && (
+                        <>
+                            <NavLink to="/tours" icon="map" label="Tours" isCollapsed={isCollapsed} />
+                            <NavLink to="/regions" icon="public" label="Regions" isCollapsed={isCollapsed} />
+                        </>
+                    )}
+                    
                     <NavLink to="/blog" icon="article" label="Blog" isCollapsed={isCollapsed} />
                     <NavLink to="/media" icon="perm_media" label="Media" isCollapsed={isCollapsed} />
-                    <NavLink to="/bookings" icon="confirmation_number" label="Bookings" isCollapsed={isCollapsed} />
-                    <NavLink to="/customers" icon="badge" label="Customers" isCollapsed={isCollapsed} />
-                    <NavLink to="/users" icon="group" label="Users" isCollapsed={isCollapsed} />
                     
-                    {/* Team Dropdown */}
-                    <div>
-                         <button
-                            onClick={() => setIsTeamMenuOpen(!isTeamMenuOpen)}
-                            className={`flex items-center w-full px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
-                                isTeamPathActive
-                                    ? 'bg-admin-primary/10 text-admin-primary'
-                                    : 'text-admin-text-secondary hover:bg-gray-100'
-                            } ${isCollapsed ? 'justify-center' : 'justify-between'}`}
-                            title={isCollapsed ? "Team" : undefined}
-                        >
-                            <div className="flex items-center gap-3">
-                                <span className="material-symbols-outlined text-lg">badge</span>
-                                {!isCollapsed && <span>Team</span>}
+                    {['Admin', 'Super Admin'].includes(userRole) && (
+                        <>
+                            <NavLink to="/bookings" icon="confirmation_number" label="Bookings" isCollapsed={isCollapsed} />
+                            <NavLink to="/customers" icon="badge" label="Customers" isCollapsed={isCollapsed} />
+                            <NavLink to="/users" icon="group" label="Users" isCollapsed={isCollapsed} />
+                            
+                            {/* Team Dropdown */}
+                            <div>
+                                <button
+                                    onClick={() => setIsTeamMenuOpen(!isTeamMenuOpen)}
+                                    className={`flex items-center w-full px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
+                                        isTeamPathActive
+                                            ? 'bg-admin-primary/10 text-admin-primary'
+                                            : 'text-admin-text-secondary hover:bg-gray-100'
+                                    } ${isCollapsed ? 'justify-center' : 'justify-between'}`}
+                                    title={isCollapsed ? "Team" : undefined}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <span className="material-symbols-outlined text-lg">badge</span>
+                                        {!isCollapsed && <span>Team</span>}
+                                    </div>
+                                    {!isCollapsed && (
+                                        <span className={`material-symbols-outlined text-lg transition-transform duration-200 ${isTeamMenuOpen ? 'rotate-180' : ''}`}>
+                                            expand_more
+                                        </span>
+                                    )}
+                                </button>
+                                {isTeamMenuOpen && !isCollapsed && (
+                                    <div className="pl-6 pt-1 mt-1 space-y-1 border-l-2 border-admin-border/50 ml-5 animate-fadeIn">
+                                        <NavLink to="/team" icon="group" label="Team Members" isSubLink={true} isCollapsed={isCollapsed} />
+                                        <NavLink to="/team-types" icon="category" label="Team Types" isSubLink={true} isCollapsed={isCollapsed} />
+                                    </div>
+                                )}
                             </div>
-                            {!isCollapsed && (
-                                <span className={`material-symbols-outlined text-lg transition-transform duration-200 ${isTeamMenuOpen ? 'rotate-180' : ''}`}>
-                                    expand_more
-                                </span>
-                            )}
-                        </button>
-                        {isTeamMenuOpen && !isCollapsed && (
-                            <div className="pl-6 pt-1 mt-1 space-y-1 border-l-2 border-admin-border/50 ml-5 animate-fadeIn">
-                                <NavLink to="/team" icon="group" label="Team Members" isSubLink={true} isCollapsed={isCollapsed} />
-                                <NavLink to="/team-types" icon="category" label="Team Types" isSubLink={true} isCollapsed={isCollapsed} />
-                            </div>
-                        )}
-                    </div>
 
-                    <NavLink to="/settings" icon="settings" label="Settings" isCollapsed={isCollapsed} />
+                            <NavLink to="/settings" icon="settings" label="Settings" isCollapsed={isCollapsed} />
+                        </>
+                    )}
                 </nav>
                  <div className="mt-auto border-t border-admin-border pt-4 p-4">
                     <Link to="/" className={`flex items-center w-full px-3 py-2 rounded-md text-sm font-semibold text-admin-text-secondary hover:bg-gray-100 transition-colors ${isCollapsed ? 'justify-center' : ''}`} title={isCollapsed ? "Back to Public Site" : undefined}>

@@ -39,7 +39,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({ children }) => {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
                 const custom = AuthService.getCustomSession();
-                if (custom && (custom.role === 'Admin' || custom.role === 'Super Admin')) {
+                if (custom && (custom.role === 'Admin' || custom.role === 'Super Admin' || custom.role === 'Editor' || custom.role === 'Writer')) {
                     setIsAuthenticated(true);
                     return;
                 } else {
@@ -72,7 +72,8 @@ const RequireAuth: React.FC<RequireAuthProps> = ({ children }) => {
 
                 console.log('[RequireAuth] User profile found:', profile);
 
-                if (profile.role !== 'Admin' && profile.role !== 'Super Admin') {
+                const allowedRoles = ['Admin', 'Super Admin', 'Editor', 'Writer'];
+                if (!allowedRoles.includes(profile.role)) {
                     console.warn(`[RequireAuth] Access denied: Role '${profile.role}' is not sufficient.`);
                     await handleAccessDenied();
                 } else {

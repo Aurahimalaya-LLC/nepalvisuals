@@ -170,14 +170,8 @@ const MenuBar = ({ editor }: { editor: Editor | null }) => {
                 />
             </div>
 
-            {/* Headings */}
+            {/* Headings - H1 removed for SEO best practices (Title is H1) */}
             <div className="flex items-center border-r border-admin-border pr-1 mr-1">
-                <MenuButton
-                    onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-                    isActive={editor.isActive('heading', { level: 1 })}
-                    icon="format_h1"
-                    title="Heading 1"
-                />
                 <MenuButton
                     onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
                     isActive={editor.isActive('heading', { level: 2 })}

@@ -96,7 +96,7 @@ const RegionPage: React.FC = () => {
                                 <span className="material-symbols-outlined text-3xl text-primary">landscape</span>
                                 <div>
                                     <p className="text-xs text-text-secondary uppercase tracking-wider">Best Seasons</p>
-                                    <p className="text-lg font-bold text-white">Spring \u0026 Autumn</p>
+                                    <p className="text-lg font-bold text-white">Spring & Autumn</p>
                                 </div>
                             </div>
                             <div className="bg-surface-dark/50 backdrop-blur-md border border-white/10 rounded-xl p-4 flex items-center gap-3">

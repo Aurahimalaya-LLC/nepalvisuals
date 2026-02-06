@@ -37,6 +37,7 @@ export interface Booking {
   profiles?: { full_name: string; email: string }; // Added profile relation
   tours?: { name: string };
   booking_travelers?: BookingTraveler[];
+  guest_count?: number;
 }
 
 export const BookingService = {
@@ -127,7 +128,7 @@ export const BookingService = {
     }
 
     // 1. Create Booking
-    const bookingToInsert = { ...booking };
+    const bookingToInsert = { ...booking, guest_count: travelers.length };
     if (customerId) {
         bookingToInsert.customer_id = customerId;
     }
@@ -147,7 +148,11 @@ export const BookingService = {
             .from('booking_travelers')
             .insert(travelersWithId);
         
-        if (travelersError) throw travelersError; // Note: If this fails, we have an orphan booking. Transaction ideal here.
+        if (travelersError) {
+            // Rollback: Delete the booking if traveler insertion fails to prevent orphaned 0-guest bookings
+            await supabase.from('bookings').delete().eq('id', bookingData.id);
+            throw travelersError;
+        }
     }
 
     return bookingData as Booking;
@@ -155,9 +160,14 @@ export const BookingService = {
 
   async updateBooking(id: string, updates: Partial<Booking>, travelers?: Partial<BookingTraveler>[]) {
     // 1. Update Booking
+    const updatesWithGuests = { ...updates, updated_at: new Date().toISOString() };
+    if (travelers) {
+        updatesWithGuests.guest_count = travelers.length;
+    }
+
     const { data, error } = await supabase
       .from('bookings')
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update(updatesWithGuests)
       .eq('id', id)
       .select()
       .single();

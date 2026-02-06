@@ -27,18 +27,23 @@ import AdminCustomerViewPage from './pages/AdminCustomerViewPage';
 import AdminCustomerEditorPage from './pages/AdminCustomerEditorPage';
 import AdminBlogCreatePage from './pages/AdminBlogCreatePage';
 import AdminBlogListPage from './pages/AdminBlogListPage';
+import AdminSeoToolsPage from './pages/AdminSeoToolsPage';
 import AdminRegionsPage from './pages/AdminRegionsPage';
 import AdminRegionEditorPage from './pages/AdminRegionEditorPage';
 import AdminMediaPage from './pages/AdminMediaPage';
 import AdminTeamPage from './pages/AdminTeamPage';
 import AdminTeamEditorPage from './pages/AdminTeamEditorPage';
 import AdminTeamTypesPage from './pages/AdminTeamTypesPage';
+import { BlogPage } from './pages/BlogPage';
+import { BlogPostPage } from './pages/BlogPostPage';
+import { AuthorProfilePage } from './pages/AuthorProfilePage';
+import EditorialGuidelinesPage from './pages/EditorialGuidelinesPage';
 import NotificationProvider from './components/common/NotificationSystem';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminResetPasswordPage from './pages/AdminResetPasswordPage';
 import RequireAuth from './components/auth/RequireAuth';
 
-
+// Routes Configuration
 const PublicRoutes = () => (
     <Layout>
         <React.Suspense fallback={<div className="p-6 text-center text-white">Loading region...</div>}>
@@ -46,6 +51,12 @@ const PublicRoutes = () => (
                 <Route path="/" element={<HomePage />} />
                 <Route path="/about" element={<AboutPage />} />
                 <Route path="/contact" element={<ContactPage />} />
+                <Route path="/blog" element={<BlogPage />} />
+                <Route path="/blog/:slug" element={<BlogPostPage />} />
+                <Route path="/blog/category/:slug" element={<BlogPage />} />
+                <Route path="/blog/tag/:slug" element={<BlogPage />} />
+                <Route path="/blog/author/:id" element={<AuthorProfilePage />} />
+                <Route path="/blog/editorial-guidelines" element={<EditorialGuidelinesPage />} />
                 <Route path="/tours" element={<ToursByRegionPage />} />
             <Route path="/region/:regionName" element={<RegionPageLazy />} />
                 <Route path="/trip/:slug" element={<TripDetailsPage />} />
@@ -76,6 +87,8 @@ const AdminRoutes = () => (
                 <Route path="/customer/edit/:customerId" element={<AdminCustomerEditorPage />} />
                 <Route path="/blog" element={<AdminBlogListPage />} />
                 <Route path="/blog/new" element={<AdminBlogCreatePage />} />
+                <Route path="/blog/edit/:id" element={<AdminBlogCreatePage />} />
+                <Route path="/blog/seo" element={<AdminSeoToolsPage />} />
                 <Route path="/bookings" element={<AdminBookingsPage />} />
                 <Route path="/regions" element={<AdminRegionsPage />} />
                 <Route path="/region/new" element={<AdminRegionEditorPage />} />

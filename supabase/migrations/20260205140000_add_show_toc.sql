@@ -1,0 +1,1 @@
+ALTER TABLE blog_posts ADD COLUMN IF NOT EXISTS show_toc BOOLEAN DEFAULT true;

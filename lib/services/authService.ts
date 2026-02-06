@@ -1,7 +1,7 @@
 import { supabase } from '../supabaseClient';
 import * as bcrypt from 'bcryptjs';
 
-export type AdminRole = 'Super Admin' | 'Admin';
+export type AdminRole = 'Super Admin' | 'Admin' | 'Editor' | 'Writer';
 
 export interface CustomAdminSession {
   id: string;
@@ -64,8 +64,8 @@ export const AuthService = {
       throw new Error('Invalid email or password.');
     }
 
-    if (profile.role !== 'Admin' && profile.role !== 'Super Admin') {
-      throw new Error('Access denied. Admin role required.');
+    if (profile.role !== 'Admin' && profile.role !== 'Super Admin' && profile.role !== 'Editor' && profile.role !== 'Writer') {
+      throw new Error('Access denied. Admin/Editor/Writer role required.');
     }
 
     const session: CustomAdminSession = {

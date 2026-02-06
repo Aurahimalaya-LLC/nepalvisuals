@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+
+Sitemap: https://sgjmrmslyeecgbdajtwc.supabase.co/functions/v1/blog-feeds?type=sitemap

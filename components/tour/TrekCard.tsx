@@ -72,7 +72,7 @@ export const TrekCard: React.FC<TrekCardProps> = ({ trek }) => {
                             <span className="text-sm font-bold text-white">{trek.rating}</span>
                         </div>
                     </div>
-                    <div className="text-text-secondary text-sm mb-4 line-clamp-2 flex-grow" dangerouslySetInnerHTML={{ __html: sanitizeHtml(trek.description) }} />
+                    <div className="text-gray-300 text-sm mb-4 line-clamp-2 flex-grow [&_*]:!text-gray-300" dangerouslySetInnerHTML={{ __html: sanitizeHtml(trek.description) }} />
                     <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-text-secondary mb-4">
                         <span className="font-medium"><span className="text-primary font-bold">Altitude:</span> {trek.maxAltitude}</span>
                         <span className="font-medium"><span className="text-primary font-bold">Difficulty:</span> {trek.difficulty}</span>

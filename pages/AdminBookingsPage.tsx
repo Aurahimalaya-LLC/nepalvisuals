@@ -170,7 +170,9 @@ const AdminBookingsPage: React.FC = () => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-admin-text-secondary">{booking.tours?.name || 'Deleted Tour'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-center text-admin-text-secondary">{booking.booking_travelers?.length || 0}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-center text-admin-text-secondary">
+                                            {(booking.guest_count || booking.booking_travelers?.length || 0) === 0 ? 1 : (booking.guest_count || booking.booking_travelers?.length)}
+                                        </td>
                                         <td className="px-6 py-4 whitespace-nowrap font-semibold text-admin-text-primary">${booking.total_price?.toLocaleString()}</td>
                                         <td className="px-6 py-4 whitespace-nowrap"><StatusBadge status={booking.status} /></td>
                                         <td className="px-6 py-4 whitespace-nowrap"><PaymentStatusBadge status={booking.payment_status} /></td>
