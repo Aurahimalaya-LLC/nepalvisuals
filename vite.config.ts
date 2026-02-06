@@ -19,6 +19,19 @@ export default defineConfig(({ mode }) => {
           '@': path.resolve(__dirname, '.'),
         }
       },
+      build: {
+        chunkSizeWarningLimit: 1000,
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              vendor: ['react', 'react-dom', 'react-router-dom'],
+              tiptap: ['@tiptap/react', '@tiptap/starter-kit'],
+              maps: ['leaflet', 'react-leaflet'],
+              stripe: ['@stripe/react-stripe-js', '@stripe/stripe-js']
+            }
+          }
+        }
+      },
       test: {
         globals: true,
         environment: 'jsdom',
